@@ -245,6 +245,35 @@ tide:
   rerun_command: "/test acceptance"
 
 presubmits:
+  jetstack/test-infra:
+
+  - name: pull-test-infra-verify-config
+    agent: kubernetes
+    context: pull-test-infra-verify-config
+    branches:
+    - master
+    rerun_command: "/test pull-test-infra-verify-config"
+    trigger: "/test pull-test-infra-verify-config"
+    run_if_changed: '^prow/config.yaml$'
+    labels:
+      preset-service-account: true
+      preset-bazel-scratch-dir: true
+    spec:
+      containers:
+      - image: gcr.io/k8s-testimages/kubekins-e2e:v20180410-27f5a5388-experimental
+        args:
+        - "--job=$(JOB_NAME)"
+        - "--repo=github.com/jetstack/$(REPO_NAME)=$(PULL_REFS)"
+        - "--upload=gs://jetstack-logs/pr-logs"
+        - --service-account=/etc/service-account/service-account.json
+        - "--timeout=15"
+        # Bazel needs privileged mode in order to sandbox builds.
+        securityContext:
+          privileged: true
+        resources:
+          requests:
+            memory: "2Gi"
+
   jetstack/navigator:
   - name: pull-navigator-bazel-verify
     agent: kubernetes
