@@ -1,5 +1,102 @@
 {
-  "puppet-module-aws_ebs-quick-verify": {
+  "cert-manager-chart-verify": {
+    "args": [
+      "make",
+      "verify_pr"
+    ],
+    "scenario": "execute",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "cert-manager-e2e-v1-10": {
+    "args": [
+      "./hack/ci.sh"
+    ],
+    "scenario": "minikube",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "cert-manager-e2e-v1-7": {
+    "args": [
+      "./hack/ci.sh"
+    ],
+    "scenario": "minikube",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "cert-manager-e2e-v1-8": {
+    "args": [
+      "./hack/ci.sh"
+    ],
+    "scenario": "minikube",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "cert-manager-e2e-v1-9": {
+    "args": [
+      "./hack/ci.sh"
+    ],
+    "scenario": "minikube",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "cert-manager-quick-verify": {
+    "args": [
+      "make",
+      "verify",
+      "test"
+    ],
+    "scenario": "execute",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "navigator-e2e-v1-10": {
+    "args": [
+      "e2e-test",
+      "make"
+    ],
+    "scenario": "minikube",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "navigator-e2e-v1-7": {
+    "args": [
+      "e2e-test",
+      "make"
+    ],
+    "scenario": "minikube",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "navigator-e2e-v1-8": {
+    "args": [
+      "e2e-test",
+      "make"
+    ],
+    "scenario": "minikube",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "navigator-e2e-v1-9": {
+    "args": [
+      "e2e-test",
+      "make"
+    ],
+    "scenario": "minikube",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "navigator-quick-verify": {
     "args": [
       "make",
       "verify"
@@ -9,7 +106,47 @@
       "UNKNOWN"
     ]
   },
-  "puppet-module-calico-quick-verify": {
+  "okta-kubectl-auth-quick-verify": {
+    "args": [
+      "make",
+      "verify"
+    ],
+    "scenario": "execute",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "pull-cert-manager-e2e-v1-10": {
+    "args": [
+      "--branch=${PULL_BASE_REF}",
+      "--script=./hack/ci/test-e2e-dockerized.sh"
+    ],
+    "scenario": "cert-manager_e2e",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "pull-cert-manager-verify": {
+    "args": [
+      "--branch=${PULL_BASE_REF}",
+      "--script=./hack/ci/test-dockerized.sh"
+    ],
+    "scenario": "cert-manager_verify",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "pull-navigator-kubetest": {
+    "args": [
+      "make",
+      "e2e-test"
+    ],
+    "scenario": "execute",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "puppet-module-aws_ebs-quick-verify": {
     "args": [
       "make",
       "verify"
@@ -29,7 +166,7 @@
       "UNKNOWN"
     ]
   },
-  "puppet-module-etcd-quick-verify": {
+  "puppet-module-calico-quick-verify": {
     "args": [
       "make",
       "verify"
@@ -59,7 +196,7 @@
       "UNKNOWN"
     ]
   },
-  "puppet-module-kubernetes-quick-verify": {
+  "puppet-module-etcd-quick-verify": {
     "args": [
       "make",
       "verify"
@@ -73,6 +210,16 @@
     "args": [
       "make",
       "acceptance"
+    ],
+    "scenario": "execute",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "puppet-module-kubernetes-quick-verify": {
+    "args": [
+      "make",
+      "verify"
     ],
     "scenario": "execute",
     "sigOwners": [
@@ -99,60 +246,10 @@
       "UNKNOWN"
     ]
   },
-  "puppet-module-tarmak-quick-verify": {
-    "args": [
-      "make",
-      "verify"
-    ],
-    "scenario": "execute",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
   "puppet-module-tarmak-acceptance-1-10-centos": {
     "args": [
       "make",
       "acceptance-1-10-centos"
-    ],
-    "scenario": "execute",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "puppet-module-tarmak-acceptance-1-9-centos": {
-    "args": [
-      "make",
-      "acceptance-1-9-centos"
-    ],
-    "scenario": "execute",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "puppet-module-tarmak-acceptance-1-8-centos": {
-    "args": [
-      "make",
-      "acceptance-1-8-centos"
-    ],
-    "scenario": "execute",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "puppet-module-tarmak-acceptance-1-7-centos": {
-    "args": [
-      "make",
-      "acceptance-1-7-centos"
-    ],
-    "scenario": "execute",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "puppet-module-tarmak-acceptance-1-6-centos": {
-    "args": [
-      "make",
-      "acceptance-1-6-centos"
     ],
     "scenario": "execute",
     "sigOwners": [
@@ -169,6 +266,26 @@
       "UNKNOWN"
     ]
   },
+  "puppet-module-tarmak-acceptance-1-6-centos": {
+    "args": [
+      "make",
+      "acceptance-1-6-centos"
+    ],
+    "scenario": "execute",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "puppet-module-tarmak-acceptance-1-7-centos": {
+    "args": [
+      "make",
+      "acceptance-1-7-centos"
+    ],
+    "scenario": "execute",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
   "puppet-module-tarmak-acceptance-1-7-ubuntu": {
     "args": [
       "make",
@@ -179,7 +296,27 @@
       "UNKNOWN"
     ]
   },
-  "puppet-module-vault_client-quick-verify": {
+  "puppet-module-tarmak-acceptance-1-8-centos": {
+    "args": [
+      "make",
+      "acceptance-1-8-centos"
+    ],
+    "scenario": "execute",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "puppet-module-tarmak-acceptance-1-9-centos": {
+    "args": [
+      "make",
+      "acceptance-1-9-centos"
+    ],
+    "scenario": "execute",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "puppet-module-tarmak-quick-verify": {
     "args": [
       "make",
       "verify"
@@ -209,10 +346,42 @@
       "UNKNOWN"
     ]
   },
-  "tarmak-quick-verify": {
+  "puppet-module-vault_client-quick-verify": {
     "args": [
       "make",
-      "all"
+      "verify"
+    ],
+    "scenario": "execute",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "tarmak-docs-push": {
+    "args": [
+      "--",
+      "make",
+      "-C",
+      "docs",
+      "clean",
+      "multiversion_build",
+      "multiversion_push"
+    ],
+    "scenario": "execute",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "tarmak-docs-verify": {
+    "args": [
+      "--",
+      "make",
+      "-C",
+      "docs",
+      "clean",
+      "spelling",
+      "linkcheck",
+      "html",
+      "copy_artifacts"
     ],
     "scenario": "execute",
     "sigOwners": [
@@ -247,21 +416,6 @@
       "UNKNOWN"
     ]
   },
-  "tarmak-puppet-module-calico-quick-verify": {
-    "args": [
-      "--env",
-      "FIXTURES_YML=.fixtures.yml.local",
-      "--",
-      "make",
-      "-C",
-      "puppet/modules/calico",
-      "verify"
-    ],
-    "scenario": "execute",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
   "tarmak-puppet-module-calico-acceptance": {
     "args": [
       "--env",
@@ -277,40 +431,14 @@
       "UNKNOWN"
     ]
   },
-  "tarmak-puppet-module-fluent_bit-quick-verify": {
-    "args": [
-      "--",
-      "make",
-      "-C",
-      "puppet/modules/fluent_bit",
-      "verify"
-    ],
-    "scenario": "execute",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "tarmak-puppet-module-fluent_bit-acceptance": {
-    "args": [
-      "--",
-      "make",
-      "-C",
-      "puppet/modules/fluent_bit",
-      "acceptance"
-    ],
-    "scenario": "execute",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "tarmak-puppet-module-etcd-quick-verify": {
+  "tarmak-puppet-module-calico-quick-verify": {
     "args": [
       "--env",
       "FIXTURES_YML=.fixtures.yml.local",
       "--",
       "make",
       "-C",
-      "puppet/modules/etcd",
+      "puppet/modules/calico",
       "verify"
     ],
     "scenario": "execute",
@@ -348,14 +476,40 @@
       "UNKNOWN"
     ]
   },
-  "tarmak-puppet-module-kubernetes-quick-verify": {
+  "tarmak-puppet-module-etcd-quick-verify": {
     "args": [
       "--env",
       "FIXTURES_YML=.fixtures.yml.local",
       "--",
       "make",
       "-C",
-      "puppet/modules/kubernetes",
+      "puppet/modules/etcd",
+      "verify"
+    ],
+    "scenario": "execute",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "tarmak-puppet-module-fluent_bit-acceptance": {
+    "args": [
+      "--",
+      "make",
+      "-C",
+      "puppet/modules/fluent_bit",
+      "acceptance"
+    ],
+    "scenario": "execute",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "tarmak-puppet-module-fluent_bit-quick-verify": {
+    "args": [
+      "--",
+      "make",
+      "-C",
+      "puppet/modules/fluent_bit",
       "verify"
     ],
     "scenario": "execute",
@@ -372,6 +526,21 @@
       "-C",
       "puppet/modules/kubernetes",
       "acceptance"
+    ],
+    "scenario": "execute",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "tarmak-puppet-module-kubernetes-quick-verify": {
+    "args": [
+      "--env",
+      "FIXTURES_YML=.fixtures.yml.local",
+      "--",
+      "make",
+      "-C",
+      "puppet/modules/kubernetes",
+      "verify"
     ],
     "scenario": "execute",
     "sigOwners": [
@@ -408,21 +577,6 @@
       "UNKNOWN"
     ]
   },
-  "tarmak-puppet-module-tarmak-quick-verify": {
-    "args": [
-      "--env",
-      "FIXTURES_YML=.fixtures.yml.local",
-      "--",
-      "make",
-      "-C",
-      "puppet/modules/tarmak",
-      "verify"
-    ],
-    "scenario": "execute",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
   "tarmak-puppet-module-tarmak-acceptance-1-10-centos": {
     "args": [
       "--env",
@@ -432,51 +586,6 @@
       "-C",
       "puppet/modules/tarmak",
       "acceptance-1-10-centos"
-    ],
-    "scenario": "execute",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "tarmak-puppet-module-tarmak-acceptance-1-9-centos": {
-    "args": [
-      "--env",
-      "FIXTURES_YML=.fixtures.yml.local",
-      "--",
-      "make",
-      "-C",
-      "puppet/modules/tarmak",
-      "acceptance-1-9-centos"
-    ],
-    "scenario": "execute",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "tarmak-puppet-module-tarmak-acceptance-1-8-centos": {
-    "args": [
-      "--env",
-      "FIXTURES_YML=.fixtures.yml.local",
-      "--",
-      "make",
-      "-C",
-      "puppet/modules/tarmak",
-      "acceptance-1-8-centos"
-    ],
-    "scenario": "execute",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "tarmak-puppet-module-tarmak-acceptance-1-7-centos": {
-    "args": [
-      "--env",
-      "FIXTURES_YML=.fixtures.yml.local",
-      "--",
-      "make",
-      "-C",
-      "puppet/modules/tarmak",
-      "acceptance-1-7-centos"
     ],
     "scenario": "execute",
     "sigOwners": [
@@ -498,6 +607,51 @@
       "UNKNOWN"
     ]
   },
+  "tarmak-puppet-module-tarmak-acceptance-1-7-centos": {
+    "args": [
+      "--env",
+      "FIXTURES_YML=.fixtures.yml.local",
+      "--",
+      "make",
+      "-C",
+      "puppet/modules/tarmak",
+      "acceptance-1-7-centos"
+    ],
+    "scenario": "execute",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "tarmak-puppet-module-tarmak-acceptance-1-8-centos": {
+    "args": [
+      "--env",
+      "FIXTURES_YML=.fixtures.yml.local",
+      "--",
+      "make",
+      "-C",
+      "puppet/modules/tarmak",
+      "acceptance-1-8-centos"
+    ],
+    "scenario": "execute",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "tarmak-puppet-module-tarmak-acceptance-1-9-centos": {
+    "args": [
+      "--env",
+      "FIXTURES_YML=.fixtures.yml.local",
+      "--",
+      "make",
+      "-C",
+      "puppet/modules/tarmak",
+      "acceptance-1-9-centos"
+    ],
+    "scenario": "execute",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
   "tarmak-puppet-module-tarmak-acceptance-1-9-ubuntu": {
     "args": [
       "--env",
@@ -513,14 +667,14 @@
       "UNKNOWN"
     ]
   },
-  "tarmak-puppet-module-vault_client-quick-verify": {
+  "tarmak-puppet-module-tarmak-quick-verify": {
     "args": [
       "--env",
       "FIXTURES_YML=.fixtures.yml.local",
       "--",
       "make",
       "-C",
-      "puppet/modules/vault_client",
+      "puppet/modules/tarmak",
       "verify"
     ],
     "scenario": "execute",
@@ -558,118 +712,14 @@
       "UNKNOWN"
     ]
   },
-  "tarmak-docs-verify": {
+  "tarmak-puppet-module-vault_client-quick-verify": {
     "args": [
+      "--env",
+      "FIXTURES_YML=.fixtures.yml.local",
       "--",
       "make",
       "-C",
-      "docs",
-      "clean",
-      "spelling",
-      "linkcheck",
-      "html",
-      "copy_artifacts"
-    ],
-    "scenario": "execute",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "tarmak-docs-push": {
-    "args": [
-      "--",
-      "make",
-      "-C",
-      "docs",
-      "clean",
-      "multiversion_build",
-      "multiversion_push"
-    ],
-    "scenario": "execute",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "cert-manager-e2e-v1-7": {
-    "args": [
-      "./hack/ci.sh"
-    ],
-    "scenario": "minikube",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "cert-manager-e2e-v1-8": {
-    "args": [
-      "./hack/ci.sh"
-    ],
-    "scenario": "minikube",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "cert-manager-e2e-v1-9": {
-    "args": [
-      "./hack/ci.sh"
-    ],
-    "scenario": "minikube",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "cert-manager-e2e-v1-10": {
-    "args": [
-      "./hack/ci.sh"
-    ],
-    "scenario": "minikube",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "cert-manager-chart-verify": {
-    "args": [
-      "make",
-      "verify_pr"
-    ],
-    "scenario": "execute",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "cert-manager-quick-verify": {
-    "args": [
-      "make",
-      "verify",
-      "test"
-    ],
-    "scenario": "execute",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "pull-cert-manager-verify": {
-    "args": [
-      "--branch=${PULL_BASE_REF}",
-      "--script=./hack/ci/test-dockerized.sh"
-    ],
-    "scenario": "cert-manager_verify",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "pull-cert-manager-e2e-v1-10": {
-    "args": [
-      "--branch=${PULL_BASE_REF}",
-      "--script=./hack/ci/test-e2e-dockerized.sh"
-    ],
-    "scenario": "cert-manager_e2e",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "navigator-quick-verify": {
-    "args": [
-      "make",
+      "puppet/modules/vault_client",
       "verify"
     ],
     "scenario": "execute",
@@ -677,50 +727,10 @@
       "UNKNOWN"
     ]
   },
-  "navigator-e2e-v1-7": {
+  "tarmak-quick-verify": {
     "args": [
       "make",
-      "e2e-test"
-    ],
-    "scenario": "minikube",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "navigator-e2e-v1-8": {
-    "args": [
-      "make",
-      "e2e-test"
-    ],
-    "scenario": "minikube",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "navigator-e2e-v1-9": {
-    "args": [
-      "make",
-      "e2e-test"
-    ],
-    "scenario": "minikube",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "navigator-e2e-v1-10": {
-    "args": [
-      "make",
-      "e2e-test"
-    ],
-    "scenario": "minikube",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "pull-navigator-kubetest": {
-    "args": [
-      "make",
-      "e2e-test"
+      "all"
     ],
     "scenario": "execute",
     "sigOwners": [
@@ -737,30 +747,20 @@
       "UNKNOWN"
     ]
   },
-  "vault-unsealer-quick-verify": {
-    "args": [
-      "make",
-      "verify"
-    ],
-    "scenario": "execute",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
-  "okta-kubectl-auth-quick-verify": {
-    "args": [
-      "make",
-      "verify"
-    ],
-    "scenario": "execute",
-    "sigOwners": [
-      "UNKNOWN"
-    ]
-  },
   "vault-plugin-auth-templated-aws-quick-verify": {
     "args": [
       "make",
       "all"
+    ],
+    "scenario": "execute",
+    "sigOwners": [
+      "UNKNOWN"
+    ]
+  },
+  "vault-unsealer-quick-verify": {
+    "args": [
+      "make",
+      "verify"
     ],
     "scenario": "execute",
     "sigOwners": [

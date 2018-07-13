@@ -1,6 +1,21 @@
 plank:
   job_url_template: 'https://jetstack-build-infra.appspot.com/build/jetstack-logs/{{if eq .Spec.Type "presubmit"}}pr-logs/pull{{else if eq .Spec.Type "batch"}}pr-logs/pull{{else}}logs{{end}}{{if ne .Spec.Refs.Org ""}}{{if ne .Spec.Refs.Org "kubernetes"}}/{{.Spec.Refs.Org}}_{{.Spec.Refs.Repo}}{{else if ne .Spec.Refs.Repo "kubernetes"}}/{{.Spec.Refs.Repo}}{{end}}{{end}}{{if eq .Spec.Type "presubmit"}}/{{with index .Spec.Refs.Pulls 0}}{{.Number}}{{end}}{{else if eq .Spec.Type "batch"}}/batch{{end}}/{{.Spec.Job}}/{{.Status.BuildID}}/'
   report_template: '[Full PR test history](https://jetstack-build-infra.appspot.com/pr/{{if eq .Spec.Refs.Org "kubernetes"}}{{if eq .Spec.Refs.Repo "kubernetes"}}{{else}}{{.Spec.Refs.Repo}}/{{end}}{{else}}{{.Spec.Refs.Org}}_{{.Spec.Refs.Repo}}/{{end}}{{with index .Spec.Refs.Pulls 0}}{{.Number}}{{end}}). [Your PR dashboard](https://jetstack-build-infra.appspot.com/pr/{{with index .Spec.Refs.Pulls 0}}{{.Author}}{{end}}). Please help us cut down on flakes by [linking to](https://github.com/kubernetes/community/blob/master/contributors/devel/flaky-tests.md#filing-issues-for-flaky-tests) an [open issue](https://github.com/{{.Spec.Refs.Org}}/{{.Spec.Refs.Repo}}/issues?q=is:issue+is:open) when you hit one in your PR.'
+  pod_pending_timeout: 60m
+  default_decoration_config:
+    timeout: 7200000000000 # 2h
+    grace_period: 15000000000 # 15s
+    utility_images:
+      clonerefs: "registry.svc.ci.openshift.org/ci/clonerefs:latest"
+      initupload: "registry.svc.ci.openshift.org/ci/initupload:latest"
+      entrypoint: "registry.svc.ci.openshift.org/ci/entrypoint:latest"
+      sidecar: "registry.svc.ci.openshift.org/ci/sidecar:latest"
+    gcs_configuration:
+      bucket: "jetstack-logs"
+      path_strategy: "legacy"
+      default_org: "jetstack"
+      default_repo: "test-infra"
+    gcs_credentials_secret: "service-account"
 
 jenkins_operator:
   job_url_template: 'https://jetstack-build-infra.appspot.com/build/jetstack-logs/{{if eq .Spec.Type "presubmit"}}pr-logs/pull{{else if eq .Spec.Type "batch"}}pr-logs/pull{{else}}logs{{end}}{{if ne .Spec.Refs.Org ""}}{{if ne .Spec.Refs.Org "kubernetes"}}/{{.Spec.Refs.Org}}_{{.Spec.Refs.Repo}}{{else if ne .Spec.Refs.Repo "kubernetes"}}/{{.Spec.Refs.Repo}}{{end}}{{end}}{{if eq .Spec.Type "presubmit"}}/{{with index .Spec.Refs.Pulls 0}}{{.Number}}{{end}}{{else if eq .Spec.Type "batch"}}/batch{{end}}/{{.Spec.Job}}/{{.Status.BuildID}}/'
@@ -229,47 +244,16 @@ tide:
 
 presubmits:
   jetstack/navigator:
-  - name: pull-navigator-bazel-verify
-    agent: kubernetes
-    context: pull-navigator-bazel-verify
+  - name: navigator-e2e-v1-10
+    context: navigator-e2e-v1-10
     always_run: false
-    rerun_command: "/test pull-navigator-bazel-verify"
-    trigger: "(?m)^/test pull-navigator-bazel-verify,?(\\s+|$)"
-    labels:
-      preset-service-account: "true"
-      preset-bazel-scratch-dir: "true"
-      preset-bazel-remote-cache-enabled: "true"
-    spec:
-      containers:
-      - image: gcr.io/jetstack-build-infra/bazelbuild:v20180321-d7679e93b-0.11.1
-        imagePullPolicy: IfNotPresent
-        args:
-        - "--clean"
-        - "--git-cache=/root/.cache/git"
-        - "--job=$(JOB_NAME)"
-        - "--repo=github.com/$(REPO_OWNER)/$(REPO_NAME)=$(PULL_REFS)"
-        - "--upload=gs://jetstack-logs/pr-logs"
-        - "--scenario=kubernetes_bazel"
-        - "--" # end bootstrap args, scenario args below
-        - --test=//cmd/... //pkg/... //internal/... //plugin/...
-        # Bazel needs privileged mode in order to sandbox builds.
-        securityContext:
-          privileged: true
-        resources:
-          requests:
-            memory: "2Gi"
-
-  - name: pull-navigator-e2e-v1-9
-    context: pull-navigator-e2e-v1-9
-    always_run: false
-    trigger: "(?m)^/test( bazel-e2e( v?1.9)?|)( \\[.+\\])?$"
-    rerun_command: "/test bazel-e2e v1.9"
+    trigger: "(?m)^/test( all| e2e( v?1.10)?|)( \\[.+\\])?$"
+    rerun_command: "/test e2e v1.10"
     skip_report: false
     max_concurrency: 4
     agent: kubernetes
     labels:
       preset-service-account: "true"
-      preset-bazel-remote-cache-enabled: "true"
       libvirt-socket: "true"
       minikube-support: "true"
       minikube-medium: "true"
@@ -282,43 +266,15 @@ presubmits:
         key: dedicated
         operator: Equal
       containers:
-      - image: gcr.io/jetstack-build-infra/minikube-in-go-v1.9.6:0.12
+      - <<: *minikube_medium
+        image: gcr.io/jetstack-build-infra/minikube-in-go-v1.10.0:0.12
         args:
         - "--repo=github.com/$(REPO_OWNER)/$(REPO_NAME)=$(PULL_REFS)"
         - "--root=/go/src"
         - "--upload=gs://jetstack-logs/pr-logs"
         - "--clean"
-        - "--job=$(JOB_NAME)"
-        - "--scenario=minikube"
-        - "--"
-        - make
-        - e2e-test
-        <<: *minikube_medium
         securityContext:
           privileged: true
-
-  - name: navigator-quick-verify
-    always_run: true
-    skip_report: false
-    context: navigator-quick-verify
-    max_concurrency: 2
-    agent: kubernetes
-    labels:
-      preset-service-account: "true"
-    spec:
-      containers:
-      - image: gcr.io/jetstack-build-infra/gcloud-in-go:0.10
-        args:
-        - "--repo=github.com/$(REPO_OWNER)/$(REPO_NAME)=$(PULL_REFS)"
-        - "--root=/go/src"
-        - "--upload=gs://jetstack-logs/pr-logs"
-        - "--clean"
-        resources:
-          requests:
-            cpu: 1
-            memory: 1Gi
-    trigger: "(?m)^/test( all| verify| quick verify),?(\\s+|$)"
-    rerun_command: "/test verify"
 
   - name: navigator-e2e-v1-7
     context: navigator-e2e-v1-7
@@ -342,13 +298,13 @@ presubmits:
         key: dedicated
         operator: Equal
       containers:
-      - image: gcr.io/jetstack-build-infra/minikube-in-go-v1.7.15:0.12
+      - <<: *minikube_medium
+        image: gcr.io/jetstack-build-infra/minikube-in-go-v1.7.15:0.12
         args:
         - "--repo=github.com/$(REPO_OWNER)/$(REPO_NAME)=$(PULL_REFS)"
         - "--root=/go/src"
         - "--upload=gs://jetstack-logs/pr-logs"
         - "--clean"
-        <<: *minikube_medium
         securityContext:
           privileged: true
 
@@ -374,13 +330,13 @@ presubmits:
         key: dedicated
         operator: Equal
       containers:
-      - image: gcr.io/jetstack-build-infra/minikube-in-go-v1.8.10:0.12
+      - <<: *minikube_medium
+        image: gcr.io/jetstack-build-infra/minikube-in-go-v1.8.10:0.12
         args:
         - "--repo=github.com/$(REPO_OWNER)/$(REPO_NAME)=$(PULL_REFS)"
         - "--root=/go/src"
         - "--upload=gs://jetstack-logs/pr-logs"
         - "--clean"
-        <<: *minikube_medium
         securityContext:
           privileged: true
 
@@ -406,45 +362,13 @@ presubmits:
         key: dedicated
         operator: Equal
       containers:
-      - image: gcr.io/jetstack-build-infra/minikube-in-go-v1.9.6:0.12
+      - <<: *minikube_medium
+        image: gcr.io/jetstack-build-infra/minikube-in-go-v1.9.6:0.12
         args:
         - "--repo=github.com/$(REPO_OWNER)/$(REPO_NAME)=$(PULL_REFS)"
         - "--root=/go/src"
         - "--upload=gs://jetstack-logs/pr-logs"
         - "--clean"
-        <<: *minikube_medium
-        securityContext:
-          privileged: true
-
-  - name: navigator-e2e-v1-10
-    context: navigator-e2e-v1-10
-    always_run: false
-    trigger: "(?m)^/test( all| e2e( v?1.10)?|)( \\[.+\\])?$"
-    rerun_command: "/test e2e v1.10"
-    skip_report: false
-    max_concurrency: 4
-    agent: kubernetes
-    labels:
-      preset-service-account: "true"
-      libvirt-socket: "true"
-      minikube-support: "true"
-      minikube-medium: "true"
-    spec:
-      nodeSelector:
-        node-role.kubernetes.io/libvirt: ""
-      # Note: this is not supported yet by prow PodSpec, taint temporary removed
-      tolerations:
-      - effect: NoSchedule
-        key: dedicated
-        operator: Equal
-      containers:
-      - image: gcr.io/jetstack-build-infra/minikube-in-go-v1.10.0:0.12
-        args:
-        - "--repo=github.com/$(REPO_OWNER)/$(REPO_NAME)=$(PULL_REFS)"
-        - "--root=/go/src"
-        - "--upload=gs://jetstack-logs/pr-logs"
-        - "--clean"
-        <<: *minikube_medium
         securityContext:
           privileged: true
 
@@ -500,6 +424,96 @@ presubmits:
       - name: var-lib-docker
         emptyDir: {}
 
+  - name: navigator-quick-verify
+    always_run: true
+    skip_report: false
+    context: navigator-quick-verify
+    max_concurrency: 2
+    agent: kubernetes
+    labels:
+      preset-service-account: "true"
+    spec:
+      containers:
+      - image: gcr.io/jetstack-build-infra/gcloud-in-go:0.10
+        args:
+        - "--repo=github.com/$(REPO_OWNER)/$(REPO_NAME)=$(PULL_REFS)"
+        - "--root=/go/src"
+        - "--upload=gs://jetstack-logs/pr-logs"
+        - "--clean"
+        resources:
+          requests:
+            cpu: 1
+            memory: 1Gi
+    trigger: "(?m)^/test( all| verify| quick verify),?(\\s+|$)"
+    rerun_command: "/test verify"
+  - name: pull-navigator-bazel-verify
+    agent: kubernetes
+    context: pull-navigator-bazel-verify
+    always_run: false
+    rerun_command: "/test pull-navigator-bazel-verify"
+    trigger: "(?m)^/test pull-navigator-bazel-verify,?(\\s+|$)"
+    labels:
+      preset-service-account: "true"
+      preset-bazel-scratch-dir: "true"
+      preset-bazel-remote-cache-enabled: "true"
+    spec:
+      containers:
+      - image: gcr.io/jetstack-build-infra/bazelbuild:v20180321-d7679e93b-0.11.1
+        imagePullPolicy: IfNotPresent
+        args:
+        - "--clean"
+        - "--git-cache=/root/.cache/git"
+        - "--job=$(JOB_NAME)"
+        - "--repo=github.com/$(REPO_OWNER)/$(REPO_NAME)=$(PULL_REFS)"
+        - "--upload=gs://jetstack-logs/pr-logs"
+        - "--scenario=kubernetes_bazel"
+        - "--" # end bootstrap args, scenario args below
+        - --test=//cmd/... //pkg/... //internal/... //plugin/...
+        # Bazel needs privileged mode in order to sandbox builds.
+        securityContext:
+          privileged: true
+        resources:
+          requests:
+            memory: "2Gi"
+
+  - name: pull-navigator-e2e-v1-9
+    context: pull-navigator-e2e-v1-9
+    always_run: false
+    trigger: "(?m)^/test( bazel-e2e( v?1.9)?|)( \\[.+\\])?$"
+    rerun_command: "/test bazel-e2e v1.9"
+    skip_report: false
+    max_concurrency: 4
+    agent: kubernetes
+    labels:
+      preset-service-account: "true"
+      preset-bazel-remote-cache-enabled: "true"
+      libvirt-socket: "true"
+      minikube-support: "true"
+      minikube-medium: "true"
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/libvirt: ""
+      # Note: this is not supported yet by prow PodSpec, taint temporary removed
+      tolerations:
+      - effect: NoSchedule
+        key: dedicated
+        operator: Equal
+      containers:
+      - <<: *minikube_medium
+        image: gcr.io/jetstack-build-infra/minikube-in-go-v1.9.6:0.12
+        args:
+        - "--repo=github.com/$(REPO_OWNER)/$(REPO_NAME)=$(PULL_REFS)"
+        - "--root=/go/src"
+        - "--upload=gs://jetstack-logs/pr-logs"
+        - "--clean"
+        - "--job=$(JOB_NAME)"
+        - "--scenario=minikube"
+        - "--"
+        - make
+        - e2e-test
+        securityContext:
+          privileged: true
+
   jetstack/puppet-module-aws_ebs:
   - <<: *puppet_module_verify
     always_run: true
@@ -507,19 +521,15 @@ presubmits:
     context: puppet-module-aws_ebs-quick-verify
 
   jetstack/puppet-module-calico:
-  - <<: *puppet_module_verify
-    always_run: true
-    name: puppet-module-calico-quick-verify
-    context: puppet-module-calico-quick-verify
   - <<: *puppet_module_acceptance
     name: puppet-module-calico-acceptance
     context: puppet-module-calico-acceptance
 
-  jetstack/puppet-module-etcd:
   - <<: *puppet_module_verify
     always_run: true
-    name: puppet-module-etcd-quick-verify
-    context: puppet-module-etcd-quick-verify
+    name: puppet-module-calico-quick-verify
+    context: puppet-module-calico-quick-verify
+  jetstack/puppet-module-etcd:
   - <<: *puppet_module_acceptance
     always_run: true
     name: puppet-module-etcd-acceptance-single-node
@@ -529,16 +539,20 @@ presubmits:
     name: puppet-module-etcd-acceptance-three-node
     context: puppet-module-etcd-acceptance-three-node
 
-  jetstack/puppet-module-kubernetes:
   - <<: *puppet_module_verify
     always_run: true
-    name: puppet-module-kubernetes-quick-verify
-    context: puppet-module-kubernetes-quick-verify
+    name: puppet-module-etcd-quick-verify
+    context: puppet-module-etcd-quick-verify
+  jetstack/puppet-module-kubernetes:
   - <<: *puppet_module_acceptance
     always_run: true
     name: puppet-module-kubernetes-acceptance
     context: puppet-module-kubernetes-acceptance
 
+  - <<: *puppet_module_verify
+    always_run: true
+    name: puppet-module-kubernetes-quick-verify
+    context: puppet-module-kubernetes-quick-verify
   jetstack/puppet-module-kubernetes_addons:
   - <<: *puppet_module_verify
     name: puppet-module-kubernetes_addons-quick-verify
@@ -552,11 +566,6 @@ presubmits:
     always_run: true
 
   jetstack/puppet-module-tarmak:
-  - <<: *puppet_module_verify
-    name: puppet-module-tarmak-quick-verify
-    context: puppet-module-tarmak-quick-verify
-    always_run: true
-
   - <<: *puppet_module_acceptance
     name: puppet-module-tarmak-acceptance-1-10-centos
     context: puppet-module-tarmak-acceptance-1-10-centos
@@ -564,23 +573,11 @@ presubmits:
     trigger: "(?m)^/test( all| acceptance-centos( v?1.10)?|)( \\[.+\\])?$"
     rerun_command: "/test acceptance-centos v1.10"
   - <<: *puppet_module_acceptance
-    name: puppet-module-tarmak-acceptance-1-9-centos
-    context: puppet-module-tarmak-acceptance-1-9-centos
+    name: puppet-module-tarmak-acceptance-1-5-centos
+    context: puppet-module-tarmak-acceptance-1-5-centos
     always_run: false
-    trigger: "(?m)^/test( all| acceptance-centos( v?1.9)?|)( \\[.+\\])?$"
-    rerun_command: "/test acceptance-centos v1.9"
-  - <<: *puppet_module_acceptance
-    name: puppet-module-tarmak-acceptance-1-8-centos
-    context: puppet-module-tarmak-acceptance-1-8-centos
-    always_run: true
-    trigger: "(?m)^/test( all| acceptance-centos( v?1.8)?|)( \\[.+\\])?$"
-    rerun_command: "/test acceptance-centos v1.8"
-  - <<: *puppet_module_acceptance
-    name: puppet-module-tarmak-acceptance-1-7-centos
-    context: puppet-module-tarmak-acceptance-1-7-centos
-    always_run: false
-    trigger: "(?m)^/test( all| acceptance-centos( v?1.7)?|)( \\[.+\\])?$"
-    rerun_command: "/test acceptance-centos v1.7"
+    trigger: "(?m)^/test( all| acceptance-centos( v?1.5)?|)( \\[.+\\])?$"
+    rerun_command: "/test acceptance-centos v1.5"
   - <<: *puppet_module_acceptance
     name: puppet-module-tarmak-acceptance-1-6-centos
     context: puppet-module-tarmak-acceptance-1-6-centos
@@ -588,24 +585,35 @@ presubmits:
     trigger: "(?m)^/test( all| acceptance-centos( v?1.6)?|)( \\[.+\\])?$"
     rerun_command: "/test acceptance-centos v1.6"
   - <<: *puppet_module_acceptance
-    name: puppet-module-tarmak-acceptance-1-5-centos
-    context: puppet-module-tarmak-acceptance-1-5-centos
+    name: puppet-module-tarmak-acceptance-1-7-centos
+    context: puppet-module-tarmak-acceptance-1-7-centos
     always_run: false
-    trigger: "(?m)^/test( all| acceptance-centos( v?1.5)?|)( \\[.+\\])?$"
-    rerun_command: "/test acceptance-centos v1.5"
+    trigger: "(?m)^/test( all| acceptance-centos( v?1.7)?|)( \\[.+\\])?$"
+    rerun_command: "/test acceptance-centos v1.7"
   - <<: *puppet_module_acceptance
     name: puppet-module-tarmak-acceptance-1-7-ubuntu
     context: puppet-module-tarmak-acceptance-1-7-ubuntu
     always_run: false
     trigger: "(?m)^/test( all| acceptance-ubuntu( v?1.7)?|)( \\[.+\\])?$"
     rerun_command: "/test acceptance-ubuntu v1.7"
-
-  jetstack/puppet-module-vault_client:
+  - <<: *puppet_module_acceptance
+    name: puppet-module-tarmak-acceptance-1-8-centos
+    context: puppet-module-tarmak-acceptance-1-8-centos
+    always_run: true
+    trigger: "(?m)^/test( all| acceptance-centos( v?1.8)?|)( \\[.+\\])?$"
+    rerun_command: "/test acceptance-centos v1.8"
+  - <<: *puppet_module_acceptance
+    name: puppet-module-tarmak-acceptance-1-9-centos
+    context: puppet-module-tarmak-acceptance-1-9-centos
+    always_run: false
+    trigger: "(?m)^/test( all| acceptance-centos( v?1.9)?|)( \\[.+\\])?$"
+    rerun_command: "/test acceptance-centos v1.9"
   - <<: *puppet_module_verify
-    name: puppet-module-vault_client-quick-verify
-    context: puppet-module-vault_client-quick-verify
+    name: puppet-module-tarmak-quick-verify
+    context: puppet-module-tarmak-quick-verify
     always_run: true
 
+  jetstack/puppet-module-vault_client:
   - <<: *puppet_module_acceptance
     name: puppet-module-vault_client-acceptance-centos
     context: puppet-module-vault_client-acceptance-centos
@@ -619,8 +627,34 @@ presubmits:
     rerun_command: "/test acceptance-ubuntu"
     always_run: true
 
+  - <<: *puppet_module_verify
+    name: puppet-module-vault_client-quick-verify
+    context: puppet-module-vault_client-quick-verify
+    always_run: true
+
   jetstack/tarmak:
-  # puppet module aws_ebs
+  - name: tarmak-docs-verify
+    always_run: true
+    skip_report: false
+    context: tarmak-docs-verify
+    max_concurrency: 2
+    agent: kubernetes
+    labels:
+      preset-service-account: "true"
+    spec:
+      containers:
+      - image: gcr.io/jetstack-build-infra/sphinx-docs:0.1
+        args:
+        - "--repo=github.com/$(REPO_OWNER)/$(REPO_NAME)=$(PULL_REFS)"
+        - "--root=/workspace"
+        - "--upload=gs://jetstack-logs/pr-logs"
+        - "--clean"
+        resources:
+          requests:
+            cpu: 750m
+            memory: 1Gi
+    trigger: "(?m)^/test( all| verify( docs)?|)( \\[.+\\])?$"
+    rerun_command: "/test verify docs"
   - <<: *puppet_module_verify
     name: tarmak-puppet-module-aws_ebs-quick-verify
     context: tarmak-puppet-module-aws_ebs-quick-verify
@@ -628,7 +662,6 @@ presubmits:
     run_if_changed: "^(puppet/modules/aws_ebs).*$"
     trigger: "(?m)^/test( all| puppet| puppet-aws_ebs| puppet-verify| puppet-aws_ebs-verify|)( \\[.+\\])?$"
     rerun_command: "/test puppet-aws_ebs-verify"
-  # puppet module aws_es_proxy
   - <<: *puppet_module_verify
     name: tarmak-puppet-module-aws_es_proxy-quick-verify
     context: tarmak-puppet-module-aws_es_proxy-quick-verify
@@ -636,14 +669,6 @@ presubmits:
     run_if_changed: "^(puppet/modules/aws_es_proxy).*$"
     trigger: "(?m)^/test( all| puppet| puppet-aws_es_proxy| puppet-verify| puppet-aws_es_proxy-verify|)( \\[.+\\])?$"
     rerun_command: "/test puppet-aws_es_proxy-verify"
-  # puppet module calico
-  - <<: *puppet_module_verify
-    name: tarmak-puppet-module-calico-quick-verify
-    context: tarmak-puppet-module-calico-quick-verify
-    always_run: false
-    run_if_changed: "^(puppet/modules/calico).*$"
-    trigger: "(?m)^/test( all| puppet| puppet-calico| puppet-verify| puppet-calico-verify|)( \\[.+\\])?$"
-    rerun_command: "/test puppet-calico-verify"
   - <<: *puppet_module_acceptance
     name: tarmak-puppet-module-calico-acceptance
     context: tarmak-puppet-module-calico-acceptance
@@ -651,14 +676,13 @@ presubmits:
     run_if_changed: "^(puppet/modules/calico).*$"
     trigger: "(?m)^/test( all| puppet| puppet-calico| puppet-calico-acceptance|)( \\[.+\\])?$"
     rerun_command: "/test puppet-calico-acceptance"
-  # puppet module etcd
   - <<: *puppet_module_verify
-    name: tarmak-puppet-module-etcd-quick-verify
-    context: tarmak-puppet-module-etcd-quick-verify
+    name: tarmak-puppet-module-calico-quick-verify
+    context: tarmak-puppet-module-calico-quick-verify
     always_run: false
-    run_if_changed: "^(puppet/modules/etcd).*$"
-    trigger: "(?m)^/test( all| puppet| puppet-etcd| puppet-verify| puppet-etcd-verify|)( \\[.+\\])?$"
-    rerun_command: "/test puppet-etcd-verify"
+    run_if_changed: "^(puppet/modules/calico).*$"
+    trigger: "(?m)^/test( all| puppet| puppet-calico| puppet-verify| puppet-calico-verify|)( \\[.+\\])?$"
+    rerun_command: "/test puppet-calico-verify"
   - <<: *puppet_module_acceptance
     name: tarmak-puppet-module-etcd-acceptance-single-node
     context: tarmak-puppet-module-etcd-acceptance-single-node
@@ -676,12 +700,12 @@ presubmits:
       rerun_command: "/test puppet-etcd-acceptance-three-node"
   # puppet module fluent_bit
   - <<: *puppet_module_verify
-    name: tarmak-puppet-module-fluent_bit-quick-verify
-    context: tarmak-puppet-module-fluent_bit-quick-verify
+    name: tarmak-puppet-module-etcd-quick-verify
+    context: tarmak-puppet-module-etcd-quick-verify
     always_run: false
-    run_if_changed: "^(puppet/modules/fluent_bit).*$"
-    trigger: "(?m)^/test( all| puppet| puppet-fluent_bit| puppet-verify| puppet-fluent_bit-verify|)( \\[.+\\])?$"
-    rerun_command: "/test puppet-fluent_bit-verify"
+    run_if_changed: "^(puppet/modules/etcd).*$"
+    trigger: "(?m)^/test( all| puppet| puppet-etcd| puppet-verify| puppet-etcd-verify|)( \\[.+\\])?$"
+    rerun_command: "/test puppet-etcd-verify"
   - <<: *puppet_module_acceptance
     name: tarmak-puppet-module-fluent_bit-acceptance
     context: tarmak-puppet-module-fluent_bit-acceptance
@@ -689,14 +713,13 @@ presubmits:
     run_if_changed: "^(puppet/modules/fluent_bit).*$"
     trigger: "(?m)^/test( all| puppet| puppet-fluent_bit| puppet-fluent_bit-acceptance|)( \\[.+\\])?$"
     rerun_command: "/test puppet-fluent_bit-acceptance"
-  # puppet module kubernetes
   - <<: *puppet_module_verify
-    name: tarmak-puppet-module-kubernetes-quick-verify
-    context: tarmak-puppet-module-kubernetes-quick-verify
+    name: tarmak-puppet-module-fluent_bit-quick-verify
+    context: tarmak-puppet-module-fluent_bit-quick-verify
     always_run: false
-    run_if_changed: "^(puppet/modules/kubernetes).*$"
-    trigger: "(?m)^/test( all| puppet| puppet-kubernetes| puppet-verify| puppet-kubernetes-verify|)( \\[.+\\])?$"
-    rerun_command: "/test puppet-kubernetes-verify"
+    run_if_changed: "^(puppet/modules/fluent_bit).*$"
+    trigger: "(?m)^/test( all| puppet| puppet-fluent_bit| puppet-verify| puppet-fluent_bit-verify|)( \\[.+\\])?$"
+    rerun_command: "/test puppet-fluent_bit-verify"
   - <<: *puppet_module_acceptance
     name: tarmak-puppet-module-kubernetes-acceptance
     context: tarmak-puppet-module-kubernetes-acceptance
@@ -704,7 +727,13 @@ presubmits:
     run_if_changed: "^(puppet/modules/kubernetes).*$"
     trigger: "(?m)^/test( all| puppet| puppet-tarmak| puppet-kubernetes-acceptance|)( \\[.+\\])?$"
     rerun_command: "/test puppet-kubernetes-acceptance"
-  # puppet module kubernetes_addons
+  - <<: *puppet_module_verify
+    name: tarmak-puppet-module-kubernetes-quick-verify
+    context: tarmak-puppet-module-kubernetes-quick-verify
+    always_run: false
+    run_if_changed: "^(puppet/modules/kubernetes).*$"
+    trigger: "(?m)^/test( all| puppet| puppet-kubernetes| puppet-verify| puppet-kubernetes-verify|)( \\[.+\\])?$"
+    rerun_command: "/test puppet-kubernetes-verify"
   - <<: *puppet_module_verify
     name: tarmak-puppet-module-kubernetes_addons-quick-verify
     context: tarmak-puppet-module-kubernetes_addons-quick-verify
@@ -712,7 +741,6 @@ presubmits:
     run_if_changed: "^(puppet/modules/kubernetes_addons).*$"
     trigger: "(?m)^/test( all| puppet| puppet-kubernetes_addons| puppet-verify| puppet-kubernetes_addons-verify|)( \\[.+\\])?$"
     rerun_command: "/test puppet-kubernetes_addons-verify"
-  # puppet module prometheus
   - <<: *puppet_module_verify
     name: tarmak-puppet-module-prometheus-quick-verify
     context: tarmak-puppet-module-prometheus-quick-verify
@@ -720,14 +748,6 @@ presubmits:
     run_if_changed: "^(puppet/modules/prometheus).*$"
     trigger: "(?m)^/test( all| puppet| puppet-prometheus| puppet-verify| puppet-prometheus-verify|)( \\[.+\\])?$"
     rerun_command: "/test puppet-prometheus-verify"
-  # puppet module tarmak
-  - <<: *puppet_module_verify
-    name: tarmak-puppet-module-tarmak-quick-verify
-    context: tarmak-puppet-module-tarmak-quick-verify
-    always_run: false
-    run_if_changed: "^(puppet/modules).*$"
-    trigger: "(?m)^/test( all| puppet| puppet-tarmak| puppet-verify| puppet-tarmak-verify|)( \\[.+\\])?$"
-    rerun_command: "/test puppet-tarmak-verify"
   - <<: *puppet_module_acceptance
     name: tarmak-puppet-module-tarmak-acceptance-1-9-centos
     context: tarmak-puppet-module-tarmak-acceptance-1-9-centos
@@ -773,12 +793,12 @@ presubmits:
       rerun_command: "/test puppet-tarmak-acceptance-centos v1.6"
   # puppet module vault_client
   - <<: *puppet_module_verify
-    name: tarmak-puppet-module-vault_client-quick-verify
-    context: tarmak-puppet-module-vault_client-quick-verify
+    name: tarmak-puppet-module-tarmak-quick-verify
+    context: tarmak-puppet-module-tarmak-quick-verify
     always_run: false
-    run_if_changed: "^(puppet/modules/vault_client).*$"
-    trigger: "(?m)^/test( all| puppet| puppet-vault_client| puppet-verify| puppet-vault_client-verify|)( \\[.+\\])?$"
-    rerun_command: "/test puppet-vault_client-verify"
+    run_if_changed: "^(puppet/modules).*$"
+    trigger: "(?m)^/test( all| puppet| puppet-tarmak| puppet-verify| puppet-tarmak-verify|)( \\[.+\\])?$"
+    rerun_command: "/test puppet-tarmak-verify"
   - <<: *puppet_module_acceptance
     name: tarmak-puppet-module-vault_client-acceptance-centos
     context: tarmak-puppet-module-vault_client-acceptance-centos
@@ -795,6 +815,13 @@ presubmits:
       trigger: "(?m)^/test( all| puppet| puppet-vault_client| puppet-vault_client-acceptance-ubuntu|)( \\[.+\\])?$"
       rerun_command: "/test puppet-vault_client-acceptance-ubuntu"
 
+  - <<: *puppet_module_verify
+    name: tarmak-puppet-module-vault_client-quick-verify
+    context: tarmak-puppet-module-vault_client-quick-verify
+    always_run: false
+    run_if_changed: "^(puppet/modules/vault_client).*$"
+    trigger: "(?m)^/test( all| puppet| puppet-vault_client| puppet-verify| puppet-vault_client-verify|)( \\[.+\\])?$"
+    rerun_command: "/test puppet-vault_client-verify"
   - name: tarmak-quick-verify
     always_run: true
     skip_report: false
@@ -817,31 +844,6 @@ presubmits:
             memory: 1Gi
     trigger: "(?m)^/test( all| verify( quick)?|)( \\[.+\\])?$"
     rerun_command: "/test verify quick"
-
-  - name: tarmak-docs-verify
-    always_run: true
-    skip_report: false
-    context: tarmak-docs-verify
-    max_concurrency: 2
-    agent: kubernetes
-    labels:
-      preset-service-account: "true"
-    spec:
-      containers:
-      - image: gcr.io/jetstack-build-infra/sphinx-docs:0.1
-        args:
-        - "--repo=github.com/$(REPO_OWNER)/$(REPO_NAME)=$(PULL_REFS)"
-        - "--root=/workspace"
-        - "--upload=gs://jetstack-logs/pr-logs"
-        - "--clean"
-        resources:
-          requests:
-            cpu: 750m
-            memory: 1Gi
-    trigger: "(?m)^/test( all| verify( docs)?|)( \\[.+\\])?$"
-    rerun_command: "/test verify docs"
-
-
   jetstack/vault-helper:
   - name: vault-helper-quick-verify
     always_run: true
@@ -865,7 +867,6 @@ presubmits:
             memory: 1Gi
     trigger: "(?m)^/test( all| verify|)( \\[.+\\])?$"
     rerun_command: "/test verify"
-
   jetstack/vault-unsealer:
   - name: vault-unsealer-quick-verify
     always_run: true
@@ -889,7 +890,6 @@ presubmits:
             memory: 1Gi
     trigger: "(?m)^/test( all| verify|)( \\[.+\\])?$"
     rerun_command: "/test verify"
-
   jetstack/vault-plugin-auth-templated-aws:
   - name: vault-plugin-auth-templated-aws-quick-verify
     always_run: true
@@ -913,7 +913,6 @@ presubmits:
             memory: 1Gi
     trigger: "(?m)^/test( all| verify|)( \\[.+\\])?$"
     rerun_command: "/test verify"
-
   jetstack/okta-kubectl-auth:
   - name: okta-kubectl-auth-quick-verify
     always_run: true
@@ -937,8 +936,36 @@ presubmits:
             memory: 1Gi
     trigger: "(?m)^/test( all| verify|)( \\[.+\\])?$"
     rerun_command: "/test verify"
-
 periodics:
+- name: periodic-test-infra-close
+  interval: 1h
+  agent: kubernetes
+  spec:
+    containers:
+    - image: gcr.io/k8s-testimages/commenter:v20170808-abf66782
+      args:
+      - |-
+        --query=repo:jetstack/cert-manager
+        -label:lifecycle/frozen
+        label:lifecycle/rotten
+      - --updated=720h
+      - --token=/etc/token/bot-github-token
+      - |-
+        --comment=Rotten issues close after 30d of inactivity.
+        Reopen the issue with `/reopen`.
+        Mark the issue as fresh with `/remove-lifecycle rotten`.
+        Send feedback to [jetstack](https://github.com/jetstack).
+        /close
+      - --template
+      - --ceiling=10
+      - --confirm
+      volumeMounts:
+      - name: token
+        mountPath: /etc/token
+    volumes:
+    - name: token
+      secret:
+        secretName: retest-bot-token
 
 - name: periodic-test-infra-retester
   interval: 20m  # Retest at most 1 PR per 20m, which should not DOS the queue.
@@ -973,36 +1000,6 @@ periodics:
       - --ceiling=1
       - --confirm
       - --updated=30m
-      volumeMounts:
-      - name: token
-        mountPath: /etc/token
-    volumes:
-    - name: token
-      secret:
-        secretName: retest-bot-token
-
-- name: periodic-test-infra-close
-  interval: 1h
-  agent: kubernetes
-  spec:
-    containers:
-    - image: gcr.io/k8s-testimages/commenter:v20170808-abf66782
-      args:
-      - |-
-        --query=repo:jetstack/cert-manager
-        -label:lifecycle/frozen
-        label:lifecycle/rotten
-      - --updated=720h
-      - --token=/etc/token/bot-github-token
-      - |-
-        --comment=Rotten issues close after 30d of inactivity.
-        Reopen the issue with `/reopen`.
-        Mark the issue as fresh with `/remove-lifecycle rotten`.
-        Send feedback to [jetstack](https://github.com/jetstack).
-        /close
-      - --template
-      - --ceiling=10
-      - --confirm
       volumeMounts:
       - name: token
         mountPath: /etc/token
