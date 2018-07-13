@@ -19,7 +19,7 @@ presubmits:
         - "--job=$(JOB_NAME)"
         - "--repo=k8s.io/$(REPO_NAME)=$(PULL_REFS)"
         - "--service-account=/etc/service-account/service-account.json"
-        - "--upload=gs://kubernetes-jenkins/pr-logs"
+        - "--upload=gs://jetstack-logs/pr-logs"
         - "--scenario=kubernetes_execute_bazel"
         - "--timeout=15"
         - "--" # end bootstrap args, scenario args below
@@ -47,7 +47,7 @@ presubmits:
         args:
         - "--job=$(JOB_NAME)"
         - "--repo=k8s.io/$(REPO_NAME)=$(PULL_REFS)"
-        - --upload=gs://kubernetes-jenkins/pr-logs
+        - --upload=gs://jetstack-logs/pr-logs
         - --service-account=/etc/service-account/service-account.json
         - --scenario=execute
         - --
@@ -71,7 +71,7 @@ presubmits:
         - "--job=$(JOB_NAME)"
         - "--repo=k8s.io/$(REPO_NAME)=$(PULL_REFS)"
         - "--service-account=/etc/service-account/service-account.json"
-        - "--upload=gs://kubernetes-jenkins/pr-logs"
+        - "--upload=gs://jetstack-logs/pr-logs"
         - "--scenario=kubernetes_bazel"
         - "--timeout=15"
         - "--" # end bootstrap args, scenario args below
@@ -102,7 +102,7 @@ presubmits:
         args:
         - "--repo=k8s.io/$(REPO_NAME)=$(PULL_REFS)"
         - --root=/go/src
-        - --upload=gs://kubernetes-jenkins/pr-logs
+        - --upload=gs://jetstack-logs/pr-logs
         - --scenario=execute
         - --
         - ./hack/verify-bazel.sh
@@ -124,7 +124,7 @@ presubmits:
         args:
         - "--job=$(JOB_NAME)"
         - "--repo=k8s.io/$(REPO_NAME)=$(PULL_REFS)"
-        - --upload=gs://kubernetes-jenkins/pr-logs
+        - --upload=gs://jetstack-logs/pr-logs
         - --service-account=/etc/service-account/service-account.json
         - --timeout=15
         - --scenario=execute
@@ -184,7 +184,7 @@ presubmits:
         args:
         - "--job=$(JOB_NAME)"
         - "--repo=k8s.io/$(REPO_NAME)=$(PULL_REFS)"
-        - --upload=gs://kubernetes-jenkins/pr-logs
+        - --upload=gs://jetstack-logs/pr-logs
         - --service-account=/etc/service-account/service-account.json
         - --scenario=execute
         - --
@@ -212,7 +212,7 @@ presubmits:
         args:
         - "--repo=k8s.io/$(REPO_NAME)=$(PULL_REFS)"
         - --root=/go/src
-        - --upload=gs://kubernetes-jenkins/pr-logs
+        - --upload=gs://jetstack-logs/pr-logs
         - --scenario=execute
         - --
         - ./hack/verify-gofmt.sh
@@ -233,7 +233,7 @@ presubmits:
         args:
         - "--repo=k8s.io/$(REPO_NAME)=$(PULL_REFS)"
         - --root=/go/src
-        - --upload=gs://kubernetes-jenkins/pr-logs
+        - --upload=gs://jetstack-logs/pr-logs
         - --scenario=execute
         - --
         - ./hack/verify-govet.sh
@@ -255,7 +255,7 @@ presubmits:
         args:
         - "--repo=k8s.io/$(REPO_NAME)=$(PULL_REFS)"
         - --root=/go/src
-        - --upload=gs://kubernetes-jenkins/pr-logs
+        - --upload=gs://jetstack-logs/pr-logs
         - --service-account=/etc/service-account/service-account.json
         - --scenario=execute
         - --
