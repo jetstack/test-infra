@@ -17,7 +17,7 @@ presubmits:
       - image: gcr.io/k8s-testimages/kubekins-e2e:v20180706-944ac61f8-experimental
         args:
         - "--job=$(JOB_NAME)"
-        - "--repo=k8s.io/$(REPO_NAME)=$(PULL_REFS)"
+        - "--repo=github.com/jetstack/$(REPO_NAME)=$(PULL_REFS)"
         - "--service-account=/etc/service-account/service-account.json"
         - "--upload=gs://jetstack-logs/pr-logs"
         - "--scenario=kubernetes_execute_bazel"
@@ -46,7 +46,7 @@ presubmits:
       - image: gcr.io/k8s-testimages/gubernator:0.4
         args:
         - "--job=$(JOB_NAME)"
-        - "--repo=k8s.io/$(REPO_NAME)=$(PULL_REFS)"
+        - "--repo=github.com/jetstack/$(REPO_NAME)=$(PULL_REFS)"
         - --upload=gs://jetstack-logs/pr-logs
         - --service-account=/etc/service-account/service-account.json
         - --scenario=execute
@@ -69,7 +69,7 @@ presubmits:
         imagePullPolicy: Always
         args:
         - "--job=$(JOB_NAME)"
-        - "--repo=k8s.io/$(REPO_NAME)=$(PULL_REFS)"
+        - "--repo=github.com/jetstack/$(REPO_NAME)=$(PULL_REFS)"
         - "--service-account=/etc/service-account/service-account.json"
         - "--upload=gs://jetstack-logs/pr-logs"
         - "--scenario=kubernetes_bazel"
@@ -100,7 +100,7 @@ presubmits:
       containers:
       - image: gcr.io/k8s-testimages/gcloud-in-go:v20171113-192bec25
         args:
-        - "--repo=k8s.io/$(REPO_NAME)=$(PULL_REFS)"
+        - "--repo=github.com/jetstack/$(REPO_NAME)=$(PULL_REFS)"
         - --root=/go/src
         - --upload=gs://jetstack-logs/pr-logs
         - --scenario=execute
@@ -123,7 +123,7 @@ presubmits:
       - image: gcr.io/k8s-testimages/kubekins-e2e:v20180706-944ac61f8-experimental
         args:
         - "--job=$(JOB_NAME)"
-        - "--repo=k8s.io/$(REPO_NAME)=$(PULL_REFS)"
+        - "--repo=github.com/jetstack/$(REPO_NAME)=$(PULL_REFS)"
         - --upload=gs://jetstack-logs/pr-logs
         - --service-account=/etc/service-account/service-account.json
         - --timeout=15
@@ -183,7 +183,7 @@ presubmits:
       - image: gcr.io/k8s-testimages/kubekins-e2e:v20180706-944ac61f8-experimental
         args:
         - "--job=$(JOB_NAME)"
-        - "--repo=k8s.io/$(REPO_NAME)=$(PULL_REFS)"
+        - "--repo=github.com/jetstack/$(REPO_NAME)=$(PULL_REFS)"
         - --upload=gs://jetstack-logs/pr-logs
         - --service-account=/etc/service-account/service-account.json
         - --scenario=execute
@@ -210,7 +210,7 @@ presubmits:
       containers:
       - image: gcr.io/k8s-testimages/gcloud-in-go:v20171113-192bec25
         args:
-        - "--repo=k8s.io/$(REPO_NAME)=$(PULL_REFS)"
+        - "--repo=github.com/jetstack/$(REPO_NAME)=$(PULL_REFS)"
         - --root=/go/src
         - --upload=gs://jetstack-logs/pr-logs
         - --scenario=execute
@@ -231,7 +231,7 @@ presubmits:
       containers:
       - image: gcr.io/k8s-testimages/gcloud-in-go:v20171113-192bec25
         args:
-        - "--repo=k8s.io/$(REPO_NAME)=$(PULL_REFS)"
+        - "--repo=github.com/jetstack/$(REPO_NAME)=$(PULL_REFS)"
         - --root=/go/src
         - --upload=gs://jetstack-logs/pr-logs
         - --scenario=execute
@@ -253,7 +253,7 @@ presubmits:
       containers:
       - image: gcr.io/k8s-testimages/kubekins-e2e:v20180706-944ac61f8-experimental
         args:
-        - "--repo=k8s.io/$(REPO_NAME)=$(PULL_REFS)"
+        - "--repo=github.com/jetstack/$(REPO_NAME)=$(PULL_REFS)"
         - --root=/go/src
         - --upload=gs://jetstack-logs/pr-logs
         - --service-account=/etc/service-account/service-account.json
