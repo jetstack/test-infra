@@ -145,6 +145,7 @@ tide:
     labels:
     - lgtm
     - approved
+    - "dco-signoff: yes"
     missingLabels:
     - needs-ok-to-test
     - do-not-merge
