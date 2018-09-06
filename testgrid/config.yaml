@@ -2745,6 +2745,9 @@ test_groups:
 - name: ci-kubernetes-dind-conformance
   gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-dind-conformance
   num_columns_recent: 3
+- name: ci-kubernetes-kind-conformance
+  gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-kind-conformance
+  num_columns_recent: 3
 
 # cloud-provider-openstack e2e conformance tests
 # name format: PR trigger ci-presubmit-${zuul-job-name}
@@ -2886,6 +2889,9 @@ dashboards:
     # TODO(bentheelder): there's probably a more appropriate alias to alert this to
     alert_options:
       alert_mail_to_addresses: gke-kubernetes-engprod+alerts@google.com
+  - name: kind, master (dev)
+    description: Runs conformance tests using kubetest against latest kubernetes master with a kubernetes-in-docker cluster
+    test_group_name: ci-kubernetes-kind-conformance
   - name: dind, master (dev)
     description: Runs conformance tests using kubetest against latest kubernetes master with a docker-in-docker cluster
     test_group_name: ci-kubernetes-dind-conformance
@@ -2967,6 +2973,9 @@ dashboards:
 
 - name: conformance-providerless
   dashboard_tab:
+  - name: kind, master (dev)
+    description: Runs conformance tests using kubetest against latest kubernetes master with a kubernetes-in-docker cluster
+    test_group_name: ci-kubernetes-kind-conformance
   - name: dind, master (dev)
     description: Runs conformance tests using kubetest against latest kubernetes master with a docker-in-docker cluster
     test_group_name: ci-kubernetes-dind-conformance
@@ -5311,14 +5320,14 @@ dashboards:
   - name: crio-e2e-fedora
     test_group_name: test_pull_request_crio_e2e_fedora
     open_test_template:
-      url: https://gcsweb-ci.svc.ci.openshift.org/gcs/<gcs_prefix>/<changelist>/artifacts/artifacts/junit_01.xml
+      url: https://gcsweb-ci.svc.ci.openshift.org/gcs/<gcs_prefix>/<changelist>
     results_url_template:
       url: https://gcsweb-ci.svc.ci.openshift.org/gcs/<gcs_prefix>
     base_options: width=10
   - name: crio-e2e-rhel
     test_group_name: test_pull_request_crio_e2e_rhel
     open_test_template:
-      url: https://gcsweb-ci.svc.ci.openshift.org/gcs/<gcs_prefix>/<changelist>/artifacts/artifacts/junit_01.xml
+      url: https://gcsweb-ci.svc.ci.openshift.org/gcs/<gcs_prefix>/<changelist>
     results_url_template:
       url: https://gcsweb-ci.svc.ci.openshift.org/gcs/<gcs_prefix>
     base_options: width=10

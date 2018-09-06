@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -32,7 +33,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/sirupsen/logrus"
-	cron "gopkg.in/robfig/cron.v2"
+	"gopkg.in/robfig/cron.v2"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -169,6 +170,9 @@ type Plank struct {
 	// DefaultDecorationConfig are defaults for shared fields for ProwJobs
 	// that request to have their PodSpecs decorated
 	DefaultDecorationConfig *kube.DecorationConfig `json:"default_decoration_config,omitempty"`
+	// JobURLPrefix is the host and path prefix under
+	// which job details will be viewable
+	JobURLPrefix string `json:"job_url_prefix,omitempty"`
 }
 
 // Gerrit is config for the gerrit controller.
@@ -216,8 +220,26 @@ type Sinker struct {
 	MaxPodAge time.Duration `json:"-"`
 }
 
+// Spyglass holds config for Spyglass
+type Spyglass struct {
+	// Viewers is a map of Regexp strings to viewer names that defines which sets
+	// of artifacts need to be consumed by which viewers. The keys are compiled
+	// and stored in RegexCache at load time.
+	Viewers map[string][]string `json:"viewers,omitempty"`
+	// RegexCache is a map of viewer regexp strings to their compiled equivalents.
+	RegexCache map[string]*regexp.Regexp `json:"-"`
+	// SizeLimit is the max size artifact in bytes that Spyglass will attempt to
+	// read in entirety. This will only affect viewers attempting to use
+	// artifact.ReadAll(). To exclude outlier artifacts, set this limit to
+	// expected file size + variance. To include all artifacts with high
+	// probability, use 2*maximum observed artifact size.
+	SizeLimit int64 `json:"size_limit,omitempty"`
+}
+
 // Deck holds config for deck.
 type Deck struct {
+	// Spyglass specifies which viewers wil be used for which artifacts when viewing a job in Deck
+	Spyglass Spyglass `json:"spyglass,omitempty"`
 	// TideUpdatePeriodString compiles into TideUpdatePeriod at load time.
 	TideUpdatePeriodString string `json:"tide_update_period,omitempty"`
 	// TideUpdatePeriod specifies how often Deck will fetch status from Tide. Defaults to 10s.
@@ -276,6 +298,9 @@ func Load(prowConfig, jobConfig string) (c *Config, err error) {
 		return nil, err
 	}
 	if err := c.finalizeJobConfig(); err != nil {
+		return nil, err
+	}
+	if err := c.validateComponentConfig(); err != nil {
 		return nil, err
 	}
 	if err := c.validateJobConfig(); err != nil {
@@ -553,6 +578,14 @@ func (c *Config) finalizeJobConfig() error {
 	return nil
 }
 
+// validateComponentConfig validates the infrastructure component configuration
+func (c *Config) validateComponentConfig() error {
+	if _, err := url.Parse(c.Plank.JobURLPrefix); c.Plank.JobURLPrefix != "" && err != nil {
+		return fmt.Errorf("plank declares an invalid job URL prefix %q: %v", c.Plank.JobURLPrefix, err)
+	}
+	return nil
+}
+
 // validateJobConfig validates if all the jobspecs/presets are valid
 // if you are mutating the jobs, please add it to finalizeJobConfig above
 func (c *Config) validateJobConfig() error {
@@ -736,6 +769,21 @@ func parseProwConfig(c *Config) error {
 			return fmt.Errorf("cannot parse duration for deck.tide_update_period: %v", err)
 		}
 		c.Deck.TideUpdatePeriod = period
+	}
+
+	if c.Deck.Spyglass.SizeLimit == 0 {
+		c.Deck.Spyglass.SizeLimit = 100e6
+	} else if c.Deck.Spyglass.SizeLimit <= 0 {
+		return fmt.Errorf("invalid value for deck.spyglass.size_limit, must be >=0")
+	}
+
+	c.Deck.Spyglass.RegexCache = make(map[string]*regexp.Regexp)
+	for k := range c.Deck.Spyglass.Viewers {
+		r, err := regexp.Compile(k)
+		if err != nil {
+			return fmt.Errorf("cannot compile regexp %s, err: %v", k, err)
+		}
+		c.Deck.Spyglass.RegexCache[k] = r
 	}
 
 	if c.PushGateway.IntervalString == "" {
