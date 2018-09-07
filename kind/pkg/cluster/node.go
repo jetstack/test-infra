@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -40,7 +42,7 @@ type nodeHandle struct {
 // createNode `docker run`s the node image, note that due to
 // images/node/entrypoint being the entrypoint, this container will
 // effectively be paused until we call actuallyStartNode(...)
-func createNode(name, clusterLabel string) (handle *nodeHandle, err error) {
+func createNode(name, image, clusterLabel string) (handle *nodeHandle, err error) {
 	cmd := exec.Command("docker", "run")
 	cmd.Args = append(cmd.Args,
 		"-d", // run the container detached
@@ -64,7 +66,7 @@ func createNode(name, clusterLabel string) (handle *nodeHandle, err error) {
 		"--expose", "6443", // expose API server port
 		// pick a random ephemeral port to forward to the API server
 		"--publish-all",
-		"kind-node", // use our image, TODO: make this configurable
+		image,
 	)
 	cmd.Debug = true
 	err = cmd.Run()
@@ -220,6 +222,13 @@ func (nh *nodeHandle) WriteKubeConfig(dest string) error {
 		}
 		buff.WriteString(line)
 		buff.WriteString("\n")
+	}
+
+	// create the directory to contain the KUBECONFIG file.
+	// 0755 is taken from client-go's config handling logic: https://github.com/kubernetes/client-go/blob/5d107d4ebc00ee0ea606ad7e39fd6ce4b0d9bf9e/tools/clientcmd/loader.go#L412
+	err = os.MkdirAll(filepath.Dir(dest), 0755)
+	if err != nil {
+		return errors.Wrap(err, "failed to create kubeconfig output directory")
 	}
 
 	return ioutil.WriteFile(dest, buff.Bytes(), 0600)
