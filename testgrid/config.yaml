@@ -23,6 +23,7 @@ default_test_group:
   alert_stale_results_hours: 0 # Don't alert for staleness by default.
   num_failures_to_alert: 3 # Consider a test failed if it has 3 or more consecutive failures.
   num_passes_to_disable_alert: 1 # Consider a failing test passing if it has 1 or more consecutive passes.
+  code_search_path: github.com/kubernetes/kubernetes/search # URL for regression search links.
 
 default_dashboard_tab:
   open_test_template: # The URL template to visit after clicking on a cell
@@ -268,6 +269,8 @@ test_groups:
   gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-e2e-kops-gce-ha
 - name: ci-kubernetes-e2e-gce-canary
   gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-e2e-gce-canary
+- name: ci-kubernetes-e2e-gce-podutil-canary
+  gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-e2e-gce-podutil-canary
 - name: ci-kubernetes-e2e-gce-device-plugin-gpu
   gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-e2e-gce-device-plugin-gpu
   alert_stale_results_hours: 24
@@ -2732,6 +2735,9 @@ test_groups:
 - name: ci-kubernetes-kind-conformance
   gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-kind-conformance
   num_columns_recent: 3
+- name: ci-kubernetes-kind-conformance-parallel
+  gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-kind-conformance-parallel
+  num_columns_recent: 3
 
 # cloud-provider-openstack e2e conformance tests
 # name format: PR trigger ci-presubmit-${zuul-job-name}
@@ -2808,6 +2814,12 @@ test_groups:
   gcs_prefix: k8s-conformance-alibaba/cloud-provider-alibaba-cloud/e2e-conformance-release-v1.8
 
 
+# DigitalOcean Test Groups
+- name: digitalocean-e2e-conformance
+  gcs_prefix: k8s-conformance-digitalocean/e2e-conformance
+- name: digitalocean-e2e-conformance-v1.11
+  gcs_prefix: k8s-conformance-digitalocean/e2e-conformance-v1.11
+
 #
 # Start dashboards
 #
@@ -2864,6 +2876,9 @@ dashboards:
   - name: kind, master (dev)
     description: Runs conformance tests using kubetest against latest kubernetes master with a kubernetes-in-docker cluster
     test_group_name: ci-kubernetes-kind-conformance
+  - name: kind, master (dev) [non-serial]
+    description: Runs conformance tests using kubetest against latest kubernetes master with a kubernetes-in-docker cluster, skipping [Serial] tests
+    test_group_name: ci-kubernetes-kind-conformance-parallel
   - name: local-up-cluster, master (dev)
     description: Runs conformance tests using kubetest with hack/local-up-cluster.sh
     test_group_name: ci-kubernetes-local-e2e
@@ -2879,6 +2894,12 @@ dashboards:
   - name: OpenStack, v1.11 (dev)
     description: Runs conformance tests using kubetest against kubernetes from the release-1.11 branch with cloud-provider-openstack
     test_group_name: ci-periodic-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.11
+  - name: DigitalOcean Master
+    description: Runs conformance test using kubetest against latest kubernetes master on DigitalOcean
+    test_group_name: digitalocean-e2e-conformance
+  - name: DigitalOcean v1.11
+    description: Runs conformance test using kubetest against kubernetes v1.11 on DigitalOcean
+    test_group_name: digitalocean-e2e-conformance-v1.11
 
 - name: conformance-gce
   dashboard_tab:
@@ -2933,6 +2954,9 @@ dashboards:
   - name: kind, master (dev)
     description: Runs conformance tests using kubetest against latest kubernetes master with a kubernetes-in-docker cluster
     test_group_name: ci-kubernetes-kind-conformance
+  - name: kind, master (dev) [non-serial]
+    description: Runs conformance tests using kubetest against latest kubernetes master with a kubernetes-in-docker cluster, skipping [Serial] tests
+    test_group_name: ci-kubernetes-kind-conformance-parallel
   - name: local-up-cluster, master (dev)
     description: Runs conformance tests using kubetest with local-up-cluster
     test_group_name: ci-kubernetes-local-e2e
@@ -2986,6 +3010,15 @@ dashboards:
     description: Runs conformance tests for cloud provier alibaba cloud on release v1.8
     test_group_name: cloud-provider-aibaba-cloud-e2e-conformance-release-v1.8
 
+# DigitalOcean Dashboard
+- name: conformance-cloud-provider-digitalocean
+  dashboard_tab:
+  - name: DigitalOcean Master
+    description: Runs conformance test using kubetest against latest kubernetes master on DigitalOcean
+    test_group_name: digitalocean-e2e-conformance
+  - name: DigitalOcean v1.11
+    description: Runs conformance test using kubetest against kubernetes v1.11 on DigitalOcean
+    test_group_name: digitalocean-e2e-conformance-v1.11
 
 - name: canonical-ubuntu1-k8sbeta
   dashboard_tab:
@@ -5701,16 +5734,26 @@ dashboards:
     test_group_name: ci-kubernetes-e2e-gci-gke-serial
     base_options: include-filter-by-regex=Volume%7Cstorage
     description: storage gci gke serial e2e tests for master branch
-  - name: gce-alpha
+  - name: gce-alpha-features
     test_group_name: ci-kubernetes-e2e-gci-gce-alpha-features
     base_options: include-filter-by-regex=Volume%7Cstorage
     description: storage gci gce alpha features e2e tests for master branch
     alert_options:
       alert_mail_to_addresses: kubernetes-sig-storage-test-failures@googlegroups.com
-  - name: gke-alpha
+  - name: gke-alpha-features
     test_group_name: ci-kubernetes-e2e-gci-gke-alpha-features
     base_options: include-filter-by-regex=Volume%7Cstorage
     description: storage gci gke alpha features e2e tests for master branch
+  - name: gce-alpha-enabled-default
+    test_group_name: ci-kubernetes-e2e-gci-gce-alpha-enabled-default
+    base_options: include-filter-by-regex=Volume%7Cstorage
+    description: storage gci gce alpha enabled default features e2e tests for master branch
+    alert_options:
+      alert_mail_to_addresses: kubernetes-sig-storage-test-failures@googlegroups.com
+  - name: gke-alpha-enabled-default
+    test_group_name: ci-kubernetes-e2e-gci-gke-alpha-enabled-default
+    base_options: include-filter-by-regex=Volume%7Cstorage
+    description: storage gci gke alpha enabled default features e2e tests for master branch
   - name: gce-multizone
     test_group_name: ci-kubernetes-e2e-gce-multizone
     base_options: include-filter-by-regex=Volume%7Cstorage
@@ -5721,6 +5764,18 @@ dashboards:
     test_group_name: ci-kubernetes-e2e-gci-gke-multizone
     base_options: include-filter-by-regex=Volume%7Cstorage
     description: storage gci gke multizone e2e tests for master branch
+  - name: gke-regional
+    test_group_name: ci-kubernetes-e2e-gke-regional
+    base_options: include-filter-by-regex=Volume%7Cstorage
+    description: storage gke regional e2e tests for master branch
+  - name: gke-regional-serial
+    test_group_name: ci-kubernetes-e2e-gke-regional-serial
+    base_options: include-filter-by-regex=Volume%7Cstorage
+    description: storage gke regional serial e2e tests for master branch
+  - name: gke-regional-slow
+    test_group_name: ci-kubernetes-e2e-gke-regional-slow
+    base_options: include-filter-by-regex=Volume%7Cstorage
+    description: storage gke regional slow e2e tests for master branch
 
 - name: sig-testing-misc
   dashboard_tab:
@@ -5823,6 +5878,10 @@ dashboards:
   dashboard_tab:
   - name: gce-canary
     test_group_name: ci-kubernetes-e2e-gce-canary
+    code_search_url_template:
+      url: https://github.com/kubernetes/test-infra/compare/<start-custom-0>...<end-custom-0>
+  - name: gce-podutil-canary
+    test_group_name: ci-kubernetes-e2e-gce-podutil-canary
     code_search_url_template:
       url: https://github.com/kubernetes/test-infra/compare/<start-custom-0>...<end-custom-0>
   - name: gke-canary
@@ -6639,6 +6698,7 @@ dashboard_groups:
   - conformance-providerless
   - conformance-cloud-provider-openstack
   - conformance-alibaba-cloud-provider
+  - conformance-cloud-provider-digitalocean
   - conformance-gardener
 
 - name: vmware
