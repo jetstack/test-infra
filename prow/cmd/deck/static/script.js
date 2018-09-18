@@ -528,6 +528,20 @@ function redraw(fz) {
             r.appendChild(createTextCell(""));
             r.appendChild(createTextCell(""));
         }
+        if (spyglass) {
+            var buildIndex = build.url.indexOf("/build/");
+            if (buildIndex !== -1) {
+                const icon = createIcon("visibility", "View in Spyglass");
+                icon.href = window.location.origin + "/view/gcs/" +
+                    build.url.substring(buildIndex + "/build/".length);
+                const cell = document.createElement("TD");
+                cell.classList.add("icon-cell");
+                cell.appendChild(icon);
+                r.appendChild(cell);
+            } else {
+                r.appendChild(createTextCell(""));
+            }
+        }
         if (build.url === "") {
             r.appendChild(createTextCell(build.job));
         } else {
@@ -762,15 +776,6 @@ function stateToAdj(state) {
         default:
             return state;
     }
-}
-
-// TODO: Need a standardized way for accessing artifact upload location #8831
-function gubernatorToSpyglass(gubernatorLink, buildID) {
-    var cleanLink = gubernatorLink.replace("https://k8s-gubernator.appspot.com/build/", '')
-    var bucket = cleanLink.substring(0, cleanLink.indexOf("/"))
-    var job = cleanLink.replace(bucket + "/", '')
-    var src = "gs://" + bucket + "/" + job + "/" + buildID
-    return "https://" + window.location.hostname + "/view?src=" + encodeURIComponent(src)
 }
 
 /**

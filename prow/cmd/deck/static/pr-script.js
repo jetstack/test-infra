@@ -20,24 +20,26 @@ class TideQuery {
      * @returns {boolean}
      */
     matchPr(pr) {
-        let isMatched = false;
-        if (this.repos) {
-            isMatched |= this.repos.indexOf(pr.Repository.NameWithOwner) !== -1;
-        } else if (this.orgs) {
-            isMatched |= this.orgs.indexOf(pr.Repository.Owner.Login) !== -1;
-        }
-        return isMatched;
-    }
+        const isMatched =
+            (this.repos && this.repos.indexOf(pr.Repository.NameWithOwner) !== -1) ||
+            (this.orgs && this.orgs.indexOf(pr.Repository.Owner.Login) !== -1);
 
-    /**
-     * Returns labels and missing labels of the query.
-     * @returns {{labels: string[], missingLabels: string[]}}
-     */
-    getLabels() {
-        return {
-            labels: this.labels,
-            missingLabels: this.missingLabels
+        if (!isMatched) {
+            return false;
         }
+
+        if (pr.BaseRef) {
+            if (this.excludedBranches &&
+                this.excludedBranches.indexOf(pr.BaseRef.Name) !== -1) {
+                return false;
+            }
+            if (this.includedBranches &&
+                this.includedBranches.indexOf(pr.BaseRef.Name) === -1) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
 
@@ -672,6 +674,49 @@ function createJobStatus(builds) {
 }
 
 /**
+ * escapeLabel escaped label name that returns a valid name used for css
+ * selector.
+ * @param {string} label
+ * @returns {string}
+ */
+function escapeLabel(label) {
+    if (label === "") return "";
+    const toUnicode = function(index) {
+      const h = label.charCodeAt(index).toString(16).split('');
+      while (h.length < 6) h.splice(0, 0, '0');
+
+      return 'x' + h.join('');
+    };
+    let result = "";
+    const alphaNum = /^[0-9a-zA-Z]+$/;
+
+    for (let i = 0; i < label.length; i++) {
+      const c = label.charCodeAt(i);
+      if ((i === 0 && c > 47 && c < 58) || !label[i].match(alphaNum)) {
+        result += toUnicode(i);
+        continue;
+      }
+      result += label[i];
+    }
+
+    return result
+}
+
+/**
+ * Creates a HTML element for the label given its name
+ * @param label
+ * @returns {HTMLElement}
+ */
+function createLabelEl(label) {
+    const el = document.createElement("SPAN");
+    const escapedName = escapeLabel(label);
+    el.classList.add("merge-table-label", "mdl-shadow--2dp", "label", escapedName);
+    el.textContent = label;
+
+    return el;
+}
+
+/**
  * Creates a merge requirement cell.
  * @param labels
  * @param notMissingLabel
@@ -680,11 +725,7 @@ function createJobStatus(builds) {
 function createMergeLabelCell(labels, notMissingLabel = false) {
     const cell = document.createElement("TD");
     labels.forEach(label => {
-        const labelEl = document.createElement("SPAN");
-        const name = label.name.split(" ").join("");
-        labelEl.classList.add("merge-table-label", "mdl-shadow--2dp", "label",
-            name);
-        labelEl.textContent = label.name;
+        const labelEl = createLabelEl(label.name);
         const toDisplay = label.own ^ notMissingLabel;
         if (toDisplay) {
             cell.appendChild(labelEl);
@@ -692,17 +733,6 @@ function createMergeLabelCell(labels, notMissingLabel = false) {
     });
 
     return cell;
-}
-
-function processLabelName(label) {
-    label = label.split(" ").join("");
-    if (label.startsWith("area/")) {
-        return "area";
-    } else if (label.startsWith("size/")) {
-        return label.slice(5);
-    } else {
-        return label;
-    }
 }
 
 /**
@@ -715,13 +745,73 @@ function appendLabelsToContainer(container, labels) {
         container.removeChild(container.firstChild);
     }
     labels.forEach(label => {
-        const labelEl = document.createElement("SPAN");
-
-        let labelName = processLabelName(label);
-        labelEl.classList.add("merge-table-label", "mdl-shadow--2dp", "label", labelName);
-        labelEl.textContent = label;
+        const labelEl = createLabelEl(label);
         container.appendChild(labelEl);
     });
+}
+
+/**
+ * Fills query details. The details will be either the milestone or
+ * included/excluded branches.
+ * @param selector
+ * @param data
+ */
+function fillDetail(selector, data) {
+    const section = document.querySelector(selector);
+    if (!data || (Array.isArray(data) && data.length === 0)) {
+        section.classList.add("hidden");
+        return;
+    }
+
+    section.classList.remove("hidden");
+    const container = section.querySelector(".detail-data");
+    container.textContent = "";
+    while (container.firstChild) {
+        container.removeChild(container.firstChild);
+    }
+
+    if (Array.isArray(data)) {
+        for (let branch of data) {
+            const str = document.createElement("SPAN");
+            str.classList.add("detail-branch");
+            str.appendChild(document.createTextNode(branch));
+            container.appendChild(str);
+        }
+    } else if (typeof data === 'string') {
+        container.appendChild(document.createTextNode(data));
+    }
+}
+
+/**
+ * Creates query details btn
+ * @param query
+ * @returns {HTMLElement}
+ */
+function createQueryDetailsBtn(query) {
+    const mergeIcon = document.createElement("TD");
+    mergeIcon.classList.add("merge-table-icon");
+
+    const iconButton = createIcon("information", "Clicks to see query details", [], true);
+    const dialog = document.querySelector("#query-dialog");
+
+    // Query labels
+    const allRequired = document.querySelector("#query-all-required");
+    const allForbidden = document.querySelector("#query-all-forbidden");
+    iconButton.addEventListener("click", () => {
+        fillDetail("#query-detail-milestone", query.milestone);
+        fillDetail("#query-detail-exclude", query.excludedBranches);
+        fillDetail("#query-detail-include", query.includedBranches);
+        appendLabelsToContainer(allRequired, query.labels.map(label => {
+            return label.name;
+        }));
+        appendLabelsToContainer(allForbidden, query.missingLabels.map(label => {
+            return label.name;
+        }));
+        dialog.showModal();
+    });
+    mergeIcon.appendChild(iconButton);
+
+    return mergeIcon;
 }
 
 /**
@@ -761,28 +851,10 @@ function createQueriesTable(prLabels, queries) {
     const body = document.createElement("TBODY");
     queries.forEach(query => {
         const row = document.createElement("TR");
-        row.append(createMergeLabelCell(query.labels, true));
-        row.append(createMergeLabelCell(query.missingLabels));
-
-        const mergeIcon = document.createElement("TD");
-        mergeIcon.classList.add("merge-table-icon");
-        const iconButton = createIcon("information", "Clicks to see query details", [], true);
-        mergeIcon.appendChild(iconButton);
-        row.appendChild(mergeIcon);
-
+        row.appendChild(createMergeLabelCell(query.labels, true));
+        row.appendChild(createMergeLabelCell(query.missingLabels));
+        row.appendChild(createQueryDetailsBtn(query));
         body.appendChild(row);
-        const dialog = document.querySelector("#query-dialog");
-        const allRequired = document.querySelector("#query-all-required");
-        const allForbidden = document.querySelector("#query-all-forbidden");
-        iconButton.addEventListener("click", () => {
-            appendLabelsToContainer(allRequired, query.labels.map(label => {
-                return label.name;
-            }));
-            appendLabelsToContainer(allForbidden, query.missingLabels.map(label => {
-                return label.name;
-            }));
-            dialog.showModal();
-        });
     });
 
     tableRow.appendChild(col1);
@@ -990,7 +1062,7 @@ function compareJobFn(a, b) {
  * closestMatchingQueries returns a list of processed TideQueries that match the PR in descending order of likeliness.
  * @param pr
  * @param queries
- * @return {Element}
+ * @return {Array}
  */
 function closestMatchingQueries(pr, queries) {
     const prLabelsSet = new Set();

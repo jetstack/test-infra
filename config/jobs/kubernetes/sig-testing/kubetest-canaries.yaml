@@ -155,8 +155,8 @@ periodics:
       - --gcp-nodes=2
       - --gcp-zone=us-central1-f
       - --provider=gce
-      - --test_args=--ginkgo.focus=Variable.Expansion --ginkgo.skip=\[Feature:.+\] --minStartupPods=8
-      - --timeout=40m
+      - --test_args=--ginkgo.skip=\[Slow\]|\[Serial\]|\[Disruptive\]|\[Flaky\]|\[Feature:.+\] --minStartupPods=8
+      - --timeout=120m
       image: gcr.io/k8s-testimages/kubekins-e2e:latest-master
       imagePullPolicy: Always
 
@@ -201,7 +201,7 @@ periodics:
       - --check-leaked-resources
       - --cluster=
       - --deployment=gke
-      - --extract=gke-latest-1.8
+      - --extract=gke-latest
       - --gcp-node-image=gci
       - --gcp-zone=us-central1-b
       - --ginkgo-parallel

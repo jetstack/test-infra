@@ -25,7 +25,6 @@ import (
 
 	"path/filepath"
 
-	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	prow_config "k8s.io/test-infra/prow/config"
@@ -39,6 +38,7 @@ type SQConfig struct {
 var (
 	companies = []string{
 		"canonical",
+		"cos",
 		"cri-o",
 		"istio",
 		"google",
@@ -300,58 +300,6 @@ func TestConfig(t *testing.T) {
 			t.Errorf("Testgroup %v - defined but not used in any dashboards", testgroupname)
 		}
 	}
-
-	// make sure items in sq-blocking dashboard matches sq configmap
-	sqJobPool := []string{}
-	for _, d := range cfg.Dashboards {
-		if d.Name != "sq-blocking" {
-			continue
-		}
-
-		for _, tab := range d.DashboardTab {
-			for _, t := range cfg.TestGroups {
-				if t.Name == tab.TestGroupName {
-					job := strings.TrimPrefix(t.GcsPrefix, "kubernetes-jenkins/logs/")
-					sqJobPool = append(sqJobPool, job)
-					break
-				}
-			}
-		}
-	}
-
-	sqConfigPath := "../../../mungegithub/submit-queue/deployment/kubernetes/configmap.yaml"
-	configData, err := ioutil.ReadFile(sqConfigPath)
-	if err != nil {
-		t.Errorf("Read Buffer Error for SQ Data : %v", err)
-	}
-
-	sqData := &SQConfig{}
-	err = yaml.Unmarshal([]byte(configData), &sqData)
-	if err != nil {
-		t.Errorf("Unmarshal Error for SQ Data : %v", err)
-	}
-
-	for _, testgridJob := range sqJobPool {
-		t.Errorf("Err : testgrid job %v not found in SQ config", testgridJob)
-	}
-
-	sqNonBlockingJobs := strings.Split(sqData.Data["nonblocking-jobs"], ",")
-	for _, sqJob := range sqNonBlockingJobs {
-		if sqJob == "" { // ignore empty list of jobs
-			continue
-		}
-		found := false
-		for _, testgroup := range cfg.TestGroups {
-			if testgroup.Name == sqJob {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			t.Errorf("Err : %v not found in testgrid config", sqJob)
-		}
-	}
 }
 
 func TestJobsTestgridEntryMatch(t *testing.T) {
@@ -372,6 +320,7 @@ func TestJobsTestgridEntryMatch(t *testing.T) {
 		"helm/charts",
 		"kubeflow/arena",
 		"kubeflow/caffe2-operator",
+		"kubeflow/chainer-operator",
 		"kubeflow/examples",
 		"kubeflow/experimental-beagle",
 		"kubeflow/experimental-kvc",
@@ -379,26 +328,26 @@ func TestJobsTestgridEntryMatch(t *testing.T) {
 		"kubeflow/katib",
 		"kubeflow/kubebench",
 		"kubeflow/kubeflow",
-		"kubeflow/chainer-operator",
 		"kubeflow/mpi-operator",
-		"kubeflow/pytorch-operator",
 		"kubeflow/mxnet-operator",
+		"kubeflow/pytorch-operator",
 		"kubeflow/reporting",
 		"kubeflow/testing",
 		"kubeflow/tf-operator",
 		"kubeflow/website",
+		"kubernetes/cloud-provider-vsphere",
+		"kubernetes/cluster-registry",
+		"kubernetes/federation",
+		"kubernetes/heapster",
+		"kubernetes/kops",
+		"kubernetes/kubernetes",
+		"kubernetes/org",
+		"kubernetes/test-infra",
 		"kubernetes-sigs/cluster-api",
 		"kubernetes-sigs/cluster-api-provider-aws",
 		"kubernetes-sigs/cluster-api-provider-gcp",
 		"kubernetes-sigs/cluster-api-provider-openstack",
 		"kubernetes-sigs/poseidon",
-		"kubernetes/cluster-registry",
-		"kubernetes/cloud-provider-vsphere",
-		"kubernetes/federation",
-		"kubernetes/heapster",
-		"kubernetes/kops",
-		"kubernetes/kubernetes",
-		"kubernetes/test-infra",
 		"tensorflow/minigo",
 	}) {
 		jobs[job.Name] = false
