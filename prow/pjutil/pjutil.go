@@ -32,14 +32,12 @@ import (
 )
 
 const (
-	jobNameLabel = "prow.k8s.io/job"
-	jobTypeLabel = "prow.k8s.io/type"
-	orgLabel     = "prow.k8s.io/refs.org"
-	repoLabel    = "prow.k8s.io/refs.repo"
-	pullLabel    = "prow.k8s.io/refs.pull"
+	orgLabel  = "prow.k8s.io/refs.org"
+	repoLabel = "prow.k8s.io/refs.repo"
+	pullLabel = "prow.k8s.io/refs.pull"
 )
 
-// NewProwJob initializes a ProwJob out of a ProwJobSpec with annotations.
+// NewProwJobWithAnnotation initializes a ProwJob out of a ProwJobSpec with annotations.
 func NewProwJobWithAnnotation(spec kube.ProwJobSpec, labels, annotations map[string]string) kube.ProwJob {
 	return newProwJob(spec, labels, annotations)
 }
@@ -50,9 +48,18 @@ func NewProwJob(spec kube.ProwJobSpec, labels map[string]string) kube.ProwJob {
 }
 
 func newProwJob(spec kube.ProwJobSpec, labels, annotations map[string]string) kube.ProwJob {
+	jobNameForLabel := spec.Job
+	if len(jobNameForLabel) > validation.LabelValueMaxLength {
+		jobNameForLabel = spec.Job[:validation.LabelValueMaxLength]
+		logrus.Warnf("Cannot use full job name '%s' for '%s' label, will be truncated to '%s'",
+			spec.Job,
+			kube.ProwJobAnnotation,
+			jobNameForLabel,
+		)
+	}
 	allLabels := map[string]string{
-		jobNameLabel: spec.Job,
-		jobTypeLabel: string(spec.Type),
+		kube.ProwJobAnnotation: jobNameForLabel,
+		kube.ProwJobTypeLabel:  string(spec.Type),
 	}
 	if spec.Type != kube.PeriodicJob {
 		allLabels[orgLabel] = spec.Refs.Org
@@ -64,6 +71,12 @@ func newProwJob(spec kube.ProwJobSpec, labels, annotations map[string]string) ku
 	for key, value := range labels {
 		allLabels[key] = value
 	}
+
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+
+	annotations[kube.ProwJobAnnotation] = spec.Job
 
 	// let's validate labels
 	for key, value := range allLabels {
@@ -124,8 +137,12 @@ func NewPresubmit(pr github.PullRequest, baseSHA string, job config.Presubmit, e
 
 // PresubmitSpec initializes a ProwJobSpec for a given presubmit job.
 func PresubmitSpec(p config.Presubmit, refs kube.Refs) kube.ProwJobSpec {
-	refs.PathAlias = p.PathAlias
-	refs.CloneURI = p.CloneURI
+	if p.PathAlias != "" {
+		refs.PathAlias = p.PathAlias
+	}
+	if p.CloneURI != "" {
+		refs.CloneURI = p.CloneURI
+	}
 	pjs := kube.ProwJobSpec{
 		Type:      kube.PresubmitJob,
 		Job:       p.Name,
@@ -155,8 +172,12 @@ func PresubmitSpec(p config.Presubmit, refs kube.Refs) kube.ProwJobSpec {
 
 // PostsubmitSpec initializes a ProwJobSpec for a given postsubmit job.
 func PostsubmitSpec(p config.Postsubmit, refs kube.Refs) kube.ProwJobSpec {
-	refs.PathAlias = p.PathAlias
-	refs.CloneURI = p.CloneURI
+	if p.PathAlias != "" {
+		refs.PathAlias = p.PathAlias
+	}
+	if p.CloneURI != "" {
+		refs.CloneURI = p.CloneURI
+	}
 	pjs := kube.ProwJobSpec{
 		Type:      kube.PostsubmitJob,
 		Job:       p.Name,
@@ -206,8 +227,12 @@ func PeriodicSpec(p config.Periodic) kube.ProwJobSpec {
 
 // BatchSpec initializes a ProwJobSpec for a given batch job and ref spec.
 func BatchSpec(p config.Presubmit, refs kube.Refs) kube.ProwJobSpec {
-	refs.PathAlias = p.PathAlias
-	refs.CloneURI = p.CloneURI
+	if p.PathAlias != "" {
+		refs.PathAlias = p.PathAlias
+	}
+	if p.CloneURI != "" {
+		refs.CloneURI = p.CloneURI
+	}
 	pjs := kube.ProwJobSpec{
 		Type:      kube.BatchJob,
 		Job:       p.Name,

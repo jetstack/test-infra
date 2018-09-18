@@ -52,6 +52,10 @@ type Options struct {
 	// when cloning. Will be added to `ssh-agent`.
 	KeyFiles []string `json:"key_files,omitempty"`
 
+	// HostFingerPrints are ssh-keyscan host fingerprint lines to use
+	// when cloning. Will be added to ~/.ssh/known_hosts
+	HostFingerprints []string `json:"host_fingerprints,omitempty"`
+
 	// MaxParallelWorkers determines how many repositories
 	// can be cloned in parallel. If 0, interpreted as no
 	// limit to parallelism
@@ -62,7 +66,7 @@ type Options struct {
 	clonePath  orgRepoFormat
 	cloneURI   orgRepoFormat
 	keys       stringSlice
-	cookiePath string
+	CookiePath string `json:"cookie_path,omitempty"`
 }
 
 // Validate ensures that the configuration options are valid
@@ -153,7 +157,7 @@ func BindOptions(options *Options, fs *flag.FlagSet) {
 	fs.Var(&options.clonePath, "clone-alias", "Format string for the path to clone to")
 	fs.Var(&options.cloneURI, "uri-prefix", "Format string for the URI prefix to clone from")
 	fs.IntVar(&options.MaxParallelWorkers, "max-workers", 0, "Maximum number of parallel workers, unset for unlimited.")
-	fs.StringVar(&options.cookiePath, "cookiefile", "", "Path to git http.coookiefile")
+	fs.StringVar(&options.CookiePath, "cookiefile", "", "Path to git http.coookiefile")
 }
 
 type gitRefs struct {

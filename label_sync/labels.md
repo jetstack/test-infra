@@ -28,7 +28,9 @@ larger set of contributors to apply/remove them.
 ### How do I add a new label?
 
 - Add automation that consumes/produces the label
-- Open a PR against [labels.yaml](https://git.k8s.io/test-infra/label_sync/labels.yaml)
+- Open a PR, _with a single commit_, that:
+  - updates [labels.yaml](https://git.k8s.io/test-infra/label_sync/labels.yaml) with the new label(s)
+  - runs `hack/update-labels.sh` (to regenerate the label descriptions and associated CSS)
 - Involve [sig-contributor-experience](https://git.k8s.io/community/sig-contributor-experience) in the change, eg: chat about it in slack, mention @kubernetes/sig-contributor-experience-pr-reviews in the PR, etc.
 - After the PR is merged, a kubernetes CronJob is responsible for syncing labels daily
 
@@ -192,9 +194,11 @@ larger set of contributors to apply/remove them.
 | <a id="area/prow/phony" href="#area/prow/phony">`area/prow/phony`</a> | Issues or PRs related to prow's phony component| label | |
 | <a id="area/prow/plank" href="#area/prow/plank">`area/prow/plank`</a> | Issues or PRs related to prow's plank component| label | |
 | <a id="area/prow/pod-utilities" href="#area/prow/pod-utilities">`area/prow/pod-utilities`</a> | Issues or PRs related to prow's pod-utilities component| label | |
+| <a id="area/prow/pubsub" href="#area/prow/pubsub">`area/prow/pubsub`</a> | Issues or PRs related to prow's pubsub reporter component| label | |
 | <a id="area/prow/sidecar" href="#area/prow/sidecar">`area/prow/sidecar`</a> | Issues or PRs related to prow's sidecar component| label | |
 | <a id="area/prow/sinker" href="#area/prow/sinker">`area/prow/sinker`</a> | Issues or PRs related to prow's sinker component| label | |
 | <a id="area/prow/splice" href="#area/prow/splice">`area/prow/splice`</a> | Issues or PRs related to prow's splice component| label | |
+| <a id="area/prow/spyglass" href="#area/prow/spyglass">`area/prow/spyglass`</a> | Issues or PRs related to prow's spyglass UI| label | |
 | <a id="area/prow/tide" href="#area/prow/tide">`area/prow/tide`</a> | Issues or PRs related to prow's tide component| label | |
 | <a id="area/prow/tot" href="#area/prow/tot">`area/prow/tot`</a> | Issues or PRs related to prow's tot component| label | |
 
