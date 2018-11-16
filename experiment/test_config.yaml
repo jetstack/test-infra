@@ -1216,12 +1216,12 @@ images:
     - --gcp-node-image=custom
   ubuntu1:
     args:
-    - --image-family=ubuntu-gke-1804-lts-1
+    - --image-family=pipeline-1
     - --image-project=ubuntu-os-gke-cloud-devel
     - --gcp-node-image=custom
   ubuntu2:
     args:
-    - --image-family=ubuntu-gke-1604-lts-2
+    - --image-family=pipeline-2
     - --image-project=ubuntu-os-gke-cloud-devel
     - --gcp-node-image=custom
   cos:
@@ -1274,7 +1274,7 @@ testSuites:
     - --test_args=--ginkgo.focus=\[Feature:Reboot\] --minStartupPods=8
   serial:
     args:
-    - --timeout=500m
+    - --timeout=660m
     - --test_args=--ginkgo.focus=\[Serial\]|\[Disruptive\] --ginkgo.skip=\[Flaky\]|\[Feature:.+\] --minStartupPods=8
     - --ginkgo-parallel=1
   slow:
@@ -1334,34 +1334,35 @@ nodeImages:
     - --node-args=--instance-metadata=user-data<test/e2e_node/jenkins/gci-init.yaml,gci-update-strategy=update_disabled
   ubuntu1:
     args:
-    - --image-family=ubuntu-gke-1804-lts-1
+    - --image-family=pipeline-1
     - --image-project=ubuntu-os-gke-cloud-devel
   ubuntu2:
     args:
-    - --image-family=ubuntu-gke-1604-lts-2
+    - --image-family=pipeline-2
     - --image-project=ubuntu-os-gke-cloud-devel
 
+#manual-release-bump-required
 nodeK8sVersions:
   dev:
     args:
     - --repo=k8s.io/kubernetes=master
-    prowImage: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-master
+    prowImage: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-master
   beta:
     args:
-    - --repo=k8s.io/kubernetes=release-1.11
-    prowImage: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-1.11
+    - --repo=k8s.io/kubernetes=release-1.13
+    prowImage: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-1.13
   stable1:
     args:
-    - --repo=k8s.io/kubernetes=release-1.10
-    prowImage: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-1.10
+    - --repo=k8s.io/kubernetes=release-1.12
+    prowImage: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-1.12
   stable2:
     args:
-    - --repo=k8s.io/kubernetes=release-1.9
-    prowImage: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-1.9
+    - --repo=k8s.io/kubernetes=release-1.11
+    prowImage: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-1.11
   stable3:
     args:
-    - --repo=k8s.io/kubernetes=release-1.8
-    prowImage: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-1.8
+    - --repo=k8s.io/kubernetes=release-1.10
+    prowImage: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-1.10
 
 nodeTestSuites:
   default:
@@ -1375,6 +1376,6 @@ nodeTestSuites:
     - --test_args=--nodes=8 --skip="\[Flaky\]|\[Serial\]|\[NodeAlphaFeature:.+\]"
   serial:
     args:
-    - --timeout=180m
+    - --timeout=300m
     - --test_args=--nodes=1 --focus="\[Serial\]" --skip="\[Flaky\]|\[Benchmark\]|\[NodeAlphaFeature:.+\]"
     - --node-test-args=--feature-gates=DynamicKubeletConfig=true

@@ -69,9 +69,11 @@ type options struct {
 	cookieSecretFile      string
 	redirectHTTPTo        string
 	hiddenOnly            bool
-	runLocal              bool
+	pregeneratedData      string
 	staticFilesLocation   string
+	templateFilesLocation string
 	spyglass              bool
+	gcsCredentialsFile    string
 }
 
 func (o *options) Validate() error {
@@ -103,9 +105,11 @@ func gatherOptions() options {
 	flag.StringVar(&o.redirectHTTPTo, "redirect-http-to", "", "Host to redirect http->https to based on x-forwarded-proto == http.")
 	// use when behind an oauth proxy
 	flag.BoolVar(&o.hiddenOnly, "hidden-only", false, "Show only hidden jobs. Useful for serving hidden jobs behind an oauth proxy.")
-	flag.BoolVar(&o.runLocal, "run-local", false, "Serve a local copy of the UI, used by the prow/cmd/deck/runlocal script")
+	flag.StringVar(&o.pregeneratedData, "pregenerated-data", "", "Use API output from another prow instance. Used by the prow/cmd/deck/runlocal script")
 	flag.BoolVar(&o.spyglass, "spyglass", false, "Use Prow built-in job viewing instead of Gubernator")
 	flag.StringVar(&o.staticFilesLocation, "static-files-location", "/static", "Path to the static files")
+	flag.StringVar(&o.templateFilesLocation, "template-files-location", "/template", "Path to the template files")
+	flag.StringVar(&o.gcsCredentialsFile, "gcs-credentials-file", "", "Path to the GCS credentials file")
 	flag.Parse()
 	return o
 }
@@ -123,8 +127,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	staticHandlerFromDir := func(dir string) http.Handler {
-		return defaultExtension(".html",
-			gziphandler.GzipHandler(handleCached(http.FileServer(http.Dir(dir)))))
+		return gziphandler.GzipHandler(handleCached(http.FileServer(http.Dir(dir))))
 	}
 
 	// setup config agent, pod log clients etc.
@@ -134,19 +137,57 @@ func main() {
 	}
 
 	// setup common handlers for local and deployed runs
-	mux.Handle("/", staticHandlerFromDir(o.staticFilesLocation))
+	mux.Handle("/static/", http.StripPrefix("/static", staticHandlerFromDir(o.staticFilesLocation)))
 	mux.Handle("/config", gziphandler.GzipHandler(handleConfig(configAgent)))
-	mux.Handle("/branding.js", gziphandler.GzipHandler(handleBranding(configAgent)))
 	mux.Handle("/favicon.ico", gziphandler.GzipHandler(handleFavicon(o.staticFilesLocation, configAgent)))
-	mux.Handle("/spyglass.js", gziphandler.GzipHandler(handleSpyglass(o.spyglass)))
 
-	// when deployed, do the full main
-	if !o.runLocal {
+	// Set up handlers for template pages.
+	mux.Handle("/pr", gziphandler.GzipHandler(handleSimpleTemplate(o, configAgent, "pr.html", nil)))
+	mux.Handle("/command-help", gziphandler.GzipHandler(handleSimpleTemplate(o, configAgent, "command-help.html", nil)))
+	mux.Handle("/plugin-help", http.RedirectHandler("/command-help", http.StatusMovedPermanently))
+	mux.Handle("/tide", gziphandler.GzipHandler(handleSimpleTemplate(o, configAgent, "tide.html", nil)))
+	mux.Handle("/plugins", gziphandler.GzipHandler(handleSimpleTemplate(o, configAgent, "plugins.html", nil)))
+
+	indexHandler := handleSimpleTemplate(o, configAgent, "index.html", struct{ SpyglassEnabled bool }{o.spyglass})
+
+	runLocal := o.pregeneratedData != ""
+
+	var fallbackHandler func(http.ResponseWriter, *http.Request)
+	if runLocal {
+		localDataHandler := staticHandlerFromDir(o.pregeneratedData)
+		fallbackHandler = localDataHandler.ServeHTTP
+	} else {
+		fallbackHandler = http.NotFound
+	}
+
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			fallbackHandler(w, r)
+			return
+		}
+		indexHandler(w, r)
+	})
+
+	if runLocal {
+		mux = localOnlyMain(configAgent, o, mux)
+	} else {
 		mux = prodOnlyMain(configAgent, o, mux)
 	}
 
 	// setup done, actually start the server
 	logrus.WithError(http.ListenAndServe(":8080", mux)).Fatal("ListenAndServe returned.")
+}
+
+// localOnlyMain contains logic used only when running locally, and is mutually exclusive with
+// prodOnlyMain.
+func localOnlyMain(configAgent *config.Agent, o options, mux *http.ServeMux) *http.ServeMux {
+	mux.Handle("/github-login", gziphandler.GzipHandler(handleSimpleTemplate(o, configAgent, "github-login.html", nil)))
+
+	if o.spyglass {
+		initSpyglass(configAgent, o, mux, nil)
+	}
+
+	return mux
 }
 
 // prodOnlyMain contains logic only used when running deployed, not locally
@@ -182,18 +223,9 @@ func prodOnlyMain(configAgent *config.Agent, o options, mux *http.ServeMux) *htt
 	mux.Handle("/rerun", gziphandler.GzipHandler(handleRerun(kc)))
 
 	if o.spyglass {
-		//TODO: Need to support authenticated buckets, #8910
-		c, err := storage.NewClient(context.Background(), option.WithoutAuthentication())
-		if err != nil {
-			logrus.WithError(err).Fatal("Error getting GCS client")
-		}
-		sg := spyglass.New(ja, []spyglass.ArtifactFetcher{spyglass.NewGCSArtifactFetcher(c)})
-
-		mux.Handle("/view/render", gziphandler.GzipHandler(handleArtifactView(sg, configAgent)))
-		mux.Handle("/view/prowjob/", gziphandler.GzipHandler(handleRequestProwJobViews(sg, configAgent, o.staticFilesLocation)))
-		mux.Handle("/view/gcs/", gziphandler.GzipHandler(handleRequestGCSJobViews(sg, configAgent, o.staticFilesLocation)))
-		mux.Handle("/view/", gziphandler.GzipHandler(handleRequestJobViews(sg, configAgent, o.staticFilesLocation)))
+		initSpyglass(configAgent, o, mux, ja)
 	}
+
 	if o.hookURL != "" {
 		mux.Handle("/plugin-help.js",
 			gziphandler.GzipHandler(handlePluginHelp(newHelpAgent(o.hookURL))))
@@ -306,6 +338,24 @@ func prodOnlyMain(configAgent *config.Agent, o options, mux *http.ServeMux) *htt
 	return mux
 }
 
+func initSpyglass(configAgent *config.Agent, o options, mux *http.ServeMux, ja *jobs.JobAgent) {
+	var c *storage.Client
+	var err error
+	if o.gcsCredentialsFile == "" {
+		c, err = storage.NewClient(context.Background(), option.WithoutAuthentication())
+	} else {
+		c, err = storage.NewClient(context.Background(), option.WithCredentialsFile(o.gcsCredentialsFile))
+	}
+	if err != nil {
+		logrus.WithError(err).Fatal("Error getting GCS client")
+	}
+	sg := spyglass.New(ja, c)
+
+	mux.Handle("/view/render", gziphandler.GzipHandler(handleArtifactView(sg, configAgent)))
+	mux.Handle("/view/", gziphandler.GzipHandler(handleRequestJobViews(sg, configAgent, o)))
+	mux.Handle("/job-history/", gziphandler.GzipHandler(handleJobHistory(o, configAgent, c)))
+}
+
 func loadToken(file string) ([]byte, error) {
 	raw, err := ioutil.ReadFile(file)
 	if err != nil {
@@ -324,20 +374,6 @@ func dupeRequest(original *http.Request) *http.Request {
 	return r2
 }
 
-// serve with handler but map extensionless URLs to the default
-func defaultExtension(extension string, h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if len(r.URL.Path) > 0 &&
-			r.URL.Path[len(r.URL.Path)-1] != '/' && path.Ext(r.URL.Path) == "" {
-			r2 := dupeRequest(r)
-			r2.URL.Path = r.URL.Path + extension
-			h.ServeHTTP(w, r2)
-		} else {
-			h.ServeHTTP(w, r)
-		}
-	})
-}
-
 func handleCached(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// This looks ridiculous but actually no-cache means "revalidate" and
@@ -354,7 +390,7 @@ func handleCached(next http.Handler) http.Handler {
 
 func setHeadersNoCaching(w http.ResponseWriter) {
 	// Note that we need to set both no-cache and no-store because only some
-	// broswers decided to (incorrectly) treat no-cache as "never store"
+	// browsers decided to (incorrectly) treat no-cache as "never store"
 	// IE "no-store". for good measure to cover older browsers we also set
 	// expires and pragma: https://stackoverflow.com/a/2068407
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -430,84 +466,35 @@ func handleBadge(ja *jobs.JobAgent) http.HandlerFunc {
 	}
 }
 
-// handleRequestProwJobViews pre-renders a Spyglass page for a Prowjob source
-// A valid Prow job view url takes the form:
+func handleJobHistory(o options, ca *config.Agent, gcsClient *storage.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		setHeadersNoCaching(w)
+		tmpl, err := getJobHistory(r.URL, ca.Config(), gcsClient)
+		if err != nil {
+			msg := fmt.Sprintf("failed to get job history: %v", err)
+			logrus.WithField("url", r.URL).Error(msg)
+			http.Error(w, msg, http.StatusInternalServerError)
+			return
+		}
+		handleSimpleTemplate(o, ca, "job-history.html", tmpl)(w, r)
+	}
+}
+
+// handleRequestJobViews handles requests to get all available artifact views for a given job.
+// The url must specify a storage key type, such as "prowjob" or "gcs":
 //
-// /view/prowjob/<jobname>/<buildID>
+// /view/<key-type>/<key>
 //
-// Example:
-// - /view/prowjob/echo-test/1021530234601607168
-func handleRequestProwJobViews(sg *spyglass.Spyglass, ca *config.Agent, staticFilesLocation string) http.HandlerFunc {
+// Examples:
+// - /view/gcs/kubernetes-jenkins/pr-logs/pull/test-infra/9557/pull-test-infra-verify-gofmt/15688/
+// - /view/prowjob/echo-test/1046875594609922048
+func handleRequestJobViews(sg *spyglass.Spyglass, ca *config.Agent, o options) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		setHeadersNoCaching(w)
 		src := strings.TrimPrefix(r.URL.Path, "/view/")
 
-		page, err := renderSpyglass(sg, ca, src, staticFilesLocation)
-		if err != nil {
-			logrus.WithError(err).Error("error rendering spyglass page")
-			http.Error(w, "error getting views for job", http.StatusInternalServerError)
-			return
-		}
-
-		fmt.Fprint(w, page)
-		elapsed := time.Since(start)
-		logrus.WithFields(logrus.Fields{
-			"duration": elapsed.String(),
-			"endpoint": r.URL.Path,
-		}).Info("Loading view for Prowjob completed.")
-	}
-}
-
-// handleRequestGCSJobViews pre-renders a Spyglass page for a GCS source
-// A valid job GCS Job view url takes the form:
-//
-// /view/gcs/<bucketname>/<jobprefix>
-//
-// Example:
-// - /view/gcs/kubernetes-jenkins/logs/ci-kubernetes-e2e-gce-large-performance/121
-func handleRequestGCSJobViews(sg *spyglass.Spyglass, ca *config.Agent, staticFilesLocation string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		setHeadersNoCaching(w)
-		srcData := strings.TrimPrefix(r.URL.Path, "/view/gcs/")
-		src := fmt.Sprintf("gs://%s", srcData)
-
-		page, err := renderSpyglass(sg, ca, src, staticFilesLocation)
-		if err != nil {
-			logrus.WithError(err).Error("error rendering spyglass page")
-			http.Error(w, "error getting views for job", http.StatusInternalServerError)
-			return
-		}
-
-		fmt.Fprint(w, page)
-		elapsed := time.Since(start)
-		logrus.WithFields(logrus.Fields{
-			"duration": elapsed.String(),
-			"endpoint": r.URL.Path,
-		}).Info("Loading view from GCS completed.")
-	}
-}
-
-// handleRequestJobViews handles requests to get all available artifact views for a given job via
-// a general src parameter, which can contain any string used to obtain job artifacts
-// A valid general job view url takes the form:
-//
-// /view/?src=<URI-encoded-source-string>
-//
-// Example:
-// - /view/?src=gs:%2F%2Fkubernetes-jenkins%2Fpr-logs%2Fpull%2Fkubeflow_kubeflow%2F1195%2Fkubeflow-presubmit%2F2558
-func handleRequestJobViews(sg *spyglass.Spyglass, ca *config.Agent, staticFilesLocation string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		setHeadersNoCaching(w)
-		src := r.URL.Query().Get("src")
-		if src == "" {
-			http.Error(w, "missing src query parameter", http.StatusBadRequest)
-			return
-		}
-
-		page, err := renderSpyglass(sg, ca, src, staticFilesLocation)
+		page, err := renderSpyglass(sg, ca, src, o)
 		if err != nil {
 			logrus.WithError(err).Error("error rendering spyglass page")
 			http.Error(w, "error getting views for job", http.StatusInternalServerError)
@@ -520,12 +507,12 @@ func handleRequestJobViews(sg *spyglass.Spyglass, ca *config.Agent, staticFilesL
 			"duration": elapsed.String(),
 			"endpoint": r.URL.Path,
 			"source":   src,
-		}).Info("Loading view from generic src completed.")
+		}).Info("Loading view completed.")
 	}
 }
 
 // renderSpyglass returns a pre-rendered Spyglass page from the given source string
-func renderSpyglass(sg *spyglass.Spyglass, ca *config.Agent, src string, staticFilesLocation string) (string, error) {
+func renderSpyglass(sg *spyglass.Spyglass, ca *config.Agent, src string, o options) (string, error) {
 	renderStart := time.Now()
 	artifactNames, err := sg.ListArtifacts(src)
 	if err != nil {
@@ -552,18 +539,32 @@ func renderSpyglass(sg *spyglass.Spyglass, ca *config.Agent, src string, staticF
 
 	lenses := sg.Views(viewerCache)
 
+	jobHistLink := ""
+	jobPath, err := sg.JobPath(src)
+	if err == nil {
+		jobHistLink = path.Join("/job-history", jobPath)
+	}
+	logrus.Infof("job history link: %s", jobHistLink)
+
 	var viewBuf bytes.Buffer
 	type ViewsTemplate struct {
 		Views       []spyglass.Lens
 		Source      string
 		ViewerCache map[string][]string
+		JobHistLink string
 	}
 	vTmpl := ViewsTemplate{
 		Views:       lenses,
 		Source:      src,
 		ViewerCache: viewerCache,
+		JobHistLink: jobHistLink,
 	}
-	t, err := template.ParseFiles(path.Join(staticFilesLocation, "template/spyglass-template.html"))
+	t := template.New("spyglass.html")
+
+	if _, err := prepareBaseTemplate(o, ca, t); err != nil {
+		return "", fmt.Errorf("error preparing base template: %v", err)
+	}
+	t, err = t.ParseFiles(path.Join(o.templateFilesLocation, "spyglass.html"))
 	if err != nil {
 		return "", fmt.Errorf("error parsing template: %v", err)
 	}
@@ -785,26 +786,6 @@ func handleConfig(ca jobs.ConfigAgent) http.HandlerFunc {
 	}
 }
 
-func handleBranding(ca jobs.ConfigAgent) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		setHeadersNoCaching(w)
-		config := ca.Config()
-		b, err := json.Marshal(config.Deck.Branding)
-		if err != nil {
-			logrus.WithError(err).Error("Error marshaling branding config.")
-			http.Error(w, "Failed to marshal branding config.", http.StatusInternalServerError)
-			return
-		}
-		// If we have a "var" query, then write out "var value = [...];".
-		// Otherwise, just write out the JSON.
-		if v := r.URL.Query().Get("var"); v != "" {
-			fmt.Fprintf(w, "var %s = %s;", v, string(b))
-		} else {
-			fmt.Fprint(w, string(b))
-		}
-	}
-}
-
 func handleFavicon(staticFilesLocation string, ca jobs.ConfigAgent) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		config := ca.Config()
@@ -812,23 +793,6 @@ func handleFavicon(staticFilesLocation string, ca jobs.ConfigAgent) http.Handler
 			http.ServeFile(w, r, staticFilesLocation+"/"+config.Deck.Branding.Favicon)
 		} else {
 			http.ServeFile(w, r, staticFilesLocation+"/favicon.ico")
-		}
-	}
-}
-
-func handleSpyglass(spyglass bool) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		setHeadersNoCaching(w)
-		b, err := json.Marshal(spyglass)
-		if err != nil {
-			logrus.WithError(err).Error("Error marshalling spyglass config.")
-			http.Error(w, "Failed to marshal spyglass config.", http.StatusInternalServerError)
-			return
-		}
-		if v := r.URL.Query().Get("var"); v != "" {
-			fmt.Fprintf(w, "var %s = %s;", v, string(b))
-		} else {
-			fmt.Fprint(w, string(b))
 		}
 	}
 }

@@ -13,7 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# bump.sh will
+# * ensure there are no pending changes
+# * optionally activate GOOGLE_APPLICATION_CREDENTIALS and configure-docker if set
+# * run //prow:release-push to build and push prow images
+# * update all the cluster/*.yaml files to use the new image tags
+
 set -o errexit
+set -o nounset
+set -o pipefail
+
+# TODO(fejta): rewrite this in a better language REAL SOON
 
 # See https://misc.flogisoft.com/bash/tip_colors_and_formatting
 
@@ -43,17 +53,81 @@ if ! ($SED --version 2>&1 | grep -q GNU); then
   exit 1
 fi
 
-new_version="v$(date -u '+%Y%m%d')-$(git describe --tags --always --dirty)"
-echo -e "version: $(color-version ${new_version})" >&2
-if [[ "${new_version}" == *-dirty ]]; then
-  echo -e "$(color-error ERROR): uncommitted changes to repo" >&2
-  echo "  Fix with git commit" >&2
-  exit 1
-fi
-
 cd "$(dirname "${BASH_SOURCE}")"
 
-# Determine what images we need to update
+usage() {
+  echo "Usage: "$(basename "$0")" [--list || --push || vYYYYMMDD-deadbeef] [image subset...]" >&2
+  exit 1
+}
+
+cmd=
+if [[ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]]; then
+  echo "Detected GOOGLE_APPLICATION_CREDENTIALS, activating..." >&2
+  gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+  gcloud auth configure-docker
+  cmd="--push"
+elif [[ $# != 0 ]]; then
+  cmd="$1"
+  shift
+fi
+
+if [[ "$cmd" == "--push" ]]; then
+  new_version="v$(date -u '+%Y%m%d')-$(git describe --tags --always --dirty)"
+  echo -e "version: $(color-version ${new_version})" >&2
+  if [[ "${new_version}" == *-dirty ]]; then
+    echo -e "$(color-error ERROR): uncommitted changes to repo" >&2
+    echo "  Fix with git commit" >&2
+    exit 1
+  fi
+  echo -e "Pushing $(color-version ${new_version}) via $(color-target //prow:release-push --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64) ..." >&2
+  bazel run //prow:release-push --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64
+elif [[ -z "$cmd" || "$cmd" == "--list" ]]; then
+  # TODO(fejta): figure out why the timestamp on all these image is 1969...
+  # Then we'll be able to just sort them.
+  echo "Listing recent versions..." >&2
+  options=(
+    $(gcloud container images list-tags gcr.io/k8s-prow/plank --limit=10 --format='value(tags)' \
+      | grep -o -E 'v[^,]+' | tac)
+  )
+  echo "Recent versions of prow:" >&2
+  if [[ -z "${options[@]}" ]]; then
+    echo "No versions found" >&2
+    exit 1
+  fi
+  new_version=
+  for o in "${options[@]}"; do
+    def_opt="$o"
+    echo -e "  $(color-version "$o")"
+  done
+  read -p "Select version [$(color-version "$def_opt")]: " new_version
+  if [[ -z "${new_version:-}" ]]; then
+    new_version="$def_opt"
+  else
+    found=
+    for o in "${options[@]}"; do
+      if [[ "$o" == "$new_version" ]]; then
+        found=yes
+        break
+      fi
+    done
+    if [[ -z "$found" ]]; then
+      echo "Invalid version: $new_version" >&2
+      exit 1
+    fi
+  fi
+elif [[ "$cmd" =~ v[0-9]{8}-[a-f0-9]{6,9} ]]; then
+  new_version="$cmd"
+else
+  usage
+fi
+
+if [[ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]]; then
+  # TODO(fejta): consider making this publish to a recent-releases.json or something
+  exit 0
+fi
+
+
+# Determine what deployment images we need to update
 echo -n "images: " >&2
 images=("$@")
 if [[ "${#images[@]}" == 0 ]]; then
@@ -63,14 +137,12 @@ if [[ "${#images[@]}" == 0 ]]; then
 fi
 echo -e "$(color-image ${images[@]})" >&2
 
-echo -e "Pushing $(color-version ${new_version}) via $(color-target //prow:release-push --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64) ..." >&2
-bazel run //prow:release-push --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64
-
 echo -e "Bumping: $(color-image ${images[@]}) to $(color-version ${new_version}) ..." >&2
 
 for i in "${images[@]}"; do
   echo -e "  $(color-image $i): $(color-version $new_version)" >&2
   $SED -i "s/\(${i}:\)v[a-f0-9-]\+/\1${new_version}/I" cluster/*.yaml
+  $SED -i "s/\(${i}:\)v[a-f0-9-]\+/\1${new_version}/I" config.yaml
 done
 
 echo "Deploy with:" >&2

@@ -61,36 +61,25 @@ var metadataTemplateText = `{{$passed := eq .Finished.Result "SUCCESS"}}
         {{else}}
         <tr class="test-row">
         {{end}}
-          <td class="mdl-data-table__cell--non-numeric">Result</td>
-          <td class="mdl-data-table__cell--non-numeric">{{.Finished.Result}}</td>
-        </tr>
-        <tr>
-          <td class="mdl-data-table__cell--non-numeric">Tests</td>
-          <td class="mdl-data-table__cell--non-numeric">TODO</td>
+          <td class="mdl-data-table__cell--non-numeric">Status</td>
+          <td class="mdl-data-table__cell--non-numeric">{{.Derived.Status}}</td>
         </tr>
         <tr>
           <td class="mdl-data-table__cell--non-numeric">Started</td>
-          <td class="mdl-data-table__cell--non-numeric">{{.Started.Timestamp}}</td>
+          <td class="mdl-data-table__cell--non-numeric">{{.Derived.StartTime}}</td>
         </tr>
         <tr>
           <td class="mdl-data-table__cell--non-numeric">Elapsed</td>
           <td class="mdl-data-table__cell--non-numeric">{{.Derived.Elapsed}}</td>
         </tr>
         <tr>
-          <td class="mdl-data-table__cell--non-numeric">Version</td>
-          <td class="mdl-data-table__cell--non-numeric">{{.Finished.Version}}</td>
-        </tr>
-        <tr>
           <td class="mdl-data-table__cell--non-numeric">Node</td>
           <td class="mdl-data-table__cell--non-numeric">{{.Started.Node}}</td>
-        </tr>
-        <tr>
-          <td class="mdl-data-table__cell--non-numeric">Job Version</td>
-          <td class="mdl-data-table__cell--non-numeric">{{.Finished.JobVersion}}</td>
         </tr>
       </tbody>
     </table>
   </div>
+  {{if .Derived.Done}}
   <div class="mdl-cell mdl-cell--6-col">
     <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="height:unset;">
       <thead class="metadata-header">
@@ -100,14 +89,44 @@ var metadataTemplateText = `{{$passed := eq .Finished.Result "SUCCESS"}}
 	</tr>
       </thead>
       <tbody>
-	{{range $k, $v := .Finished.Metadata}}
-	<tr>
-          <td class="mdl-data-table__cell--non-numeric">{{$k}}</td>
-          <td class="mdl-data-table__cell--non-numeric">{{$v}}</td>
-        </tr>{{end}}
+        <tr>
+          <td class="mdl-data-table__cell--non-numeric">Repo</td>
+          <td class="mdl-data-table__cell--non-numeric">{{.Finished.Metadata.Repo}}</td>
+	</tr>
+        <tr>
+          <td class="mdl-data-table__cell--non-numeric">Repo Commit</td>
+          <td class="mdl-data-table__cell--non-numeric">{{.Finished.Metadata.RepoCommit}}</td>
+	</tr>
+        <tr>
+          <td class="mdl-data-table__cell--non-numeric">Infra Commit</td>
+          <td class="mdl-data-table__cell--non-numeric">{{.Finished.Metadata.InfraCommit}}</td>
+	</tr>
+        <tr>
+          <td class="mdl-data-table__cell--non-numeric">Pod</td>
+          <td class="mdl-data-table__cell--non-numeric">{{.Finished.Metadata.Pod}}</td>
+	</tr>
       </tbody>
     </table>
   </div>
+  <div class="mdl-cell mdl-cell--6-col">
+    <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="height:unset;">
+      <thead class="metadata-header">
+        <tr>
+	  <th class="mdl-data-table__cell--non-numeric">Package</td>
+	  <th class="mdl-data-table__cell--non-numeric">Version</td>
+	</tr>
+      </thead>
+      <tbody>
+	{{range $k, $v := .Finished.Metadata.Repos}}
+	<tr>
+          <td class="mdl-data-table__cell--non-numeric">{{$k}}</td>
+          <td class="mdl-data-table__cell--non-numeric">{{$v}}</td>
+	</tr>
+	{{end}}
+      </tbody>
+    </table>
+  </div>
+  {{end}}
 </div>`
 
 var metadataTemplate = template.Must(template.New("metadata").Parse(metadataTemplateText))

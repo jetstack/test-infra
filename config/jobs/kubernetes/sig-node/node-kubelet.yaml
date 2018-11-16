@@ -6,7 +6,7 @@ periodics:
     preset-k8s-ssh: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-master
       args:
       - --repo=k8s.io/kubernetes=master
       - --timeout=90
@@ -33,7 +33,7 @@ periodics:
     preset-k8s-ssh: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-master
       args:
       - --repo=k8s.io/kubernetes=master
       - --timeout=90
@@ -60,7 +60,7 @@ periodics:
     preset-k8s-ssh: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-master
       args:
       - --repo=k8s.io/kubernetes=master
       - --timeout=90
@@ -88,9 +88,9 @@ periodics:
     preset-k8s-ssh: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-1.13
       args:
-      - --repo=k8s.io/kubernetes=release-1.12
+      - --repo=k8s.io/kubernetes=release-1.13
       - --timeout=90
       - --root=/go/src
       - --scenario=kubernetes_e2e
@@ -98,7 +98,7 @@ periodics:
       - --deployment=node
       - --gcp-project=k8s-jkns-ci-node-e2e
       - --gcp-zone=us-central1-f
-      - --node-args=--image-config-file=/workspace/test-infra/jobs/e2e_node/image-config.yaml
+      - --node-args=--image-config-file=/workspace/test-infra/jobs/e2e_node/image-config-1-13.yaml
       - --node-test-args=--kubelet-flags="--cgroups-per-qos=true --cgroup-root=/"
       - --node-tests=true
       - --provider=gce
@@ -116,9 +116,9 @@ periodics:
     preset-k8s-ssh: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-1.13
       args:
-      - --repo=k8s.io/kubernetes=release-1.12
+      - --repo=k8s.io/kubernetes=release-1.13
       - --timeout=90
       - --root=/go/src
       - --scenario=kubernetes_e2e
@@ -126,7 +126,7 @@ periodics:
       - --deployment=node
       - --gcp-project=k8s-jkns-ci-node-e2e
       - --gcp-zone=us-central1-f
-      - --node-args=--image-config-file=/workspace/test-infra/jobs/e2e_node/image-config.yaml
+      - --node-args=--image-config-file=/workspace/test-infra/jobs/e2e_node/image-config-1-13.yaml
       - --node-test-args=--kubelet-flags="--cgroups-per-qos=true --cgroup-root=/"
       - --node-tests=true
       - --provider=gce
@@ -143,7 +143,7 @@ periodics:
     preset-k8s-ssh: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-master
       args:
       - --repo=k8s.io/kubernetes=master
       - --timeout=90
@@ -170,7 +170,7 @@ periodics:
     preset-k8s-ssh: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-master
       args:
       - --repo=k8s.io/kubernetes=master
       - --timeout=90
@@ -197,7 +197,7 @@ periodics:
     preset-k8s-ssh: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-master
       args:
       - --repo=k8s.io/kubernetes=master
       - --timeout=90
@@ -224,7 +224,7 @@ periodics:
     preset-k8s-ssh: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-master
       args:
       - --repo=k8s.io/kubernetes=master
       - --timeout=400
@@ -245,16 +245,16 @@ periodics:
         value: /go
 
 - name: ci-kubernetes-node-kubelet-serial
-  interval: 4h
+  interval: 4h30m
   labels:
     preset-service-account: "true"
     preset-k8s-ssh: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-master
       args:
       - --repo=k8s.io/kubernetes=master
-      - --timeout=240
+      - --timeout=265
       - --root=/go/src
       - --scenario=kubernetes_e2e
       - --
@@ -266,7 +266,7 @@ periodics:
       - --node-tests=true
       - --provider=gce
       - --test_args=--nodes=1 --focus="\[Serial\]" --skip="\[Flaky\]|\[Benchmark\]|\[NodeSpecialFeature:.+\]|\[NodeAlphaFeature:.+\]"
-      - --timeout=220m
+      - --timeout=245m
       env:
       - name: GOPATH
         value: /go
@@ -278,7 +278,7 @@ periodics:
     preset-k8s-ssh: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-master
       args:
       - --repo=k8s.io/kubernetes=master
       - --timeout=240
@@ -306,9 +306,9 @@ periodics:
     preset-k8s-ssh: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-1.11
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-1.12
       args:
-      - --repo=k8s.io/kubernetes=release-1.11
+      - --repo=k8s.io/kubernetes=release-1.12
       - --timeout=90
       - --root=/go/src
       - --scenario=kubernetes_e2e
@@ -316,7 +316,7 @@ periodics:
       - --deployment=node
       - --gcp-project=k8s-jkns-ci-node-e2e
       - --gcp-zone=us-central1-f
-      - --node-args=--image-config-file=/workspace/test-infra/jobs/e2e_node/image-config-1-11.yaml
+      - --node-args=--image-config-file=/workspace/test-infra/jobs/e2e_node/image-config-1-12.yaml
       - --node-test-args=--kubelet-flags="--cgroups-per-qos=true --cgroup-root=/"
       - --node-tests=true
       - --provider=gce
@@ -334,9 +334,9 @@ periodics:
     preset-k8s-ssh: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-1.10
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-1.11
       args:
-      - --repo=k8s.io/kubernetes=release-1.10
+      - --repo=k8s.io/kubernetes=release-1.11
       - --timeout=90
       - --root=/go/src
       - --scenario=kubernetes_e2e
@@ -344,7 +344,7 @@ periodics:
       - --deployment=node
       - --gcp-project=k8s-jkns-ci-node-e2e
       - --gcp-zone=us-central1-f
-      - --node-args=--image-config-file=/workspace/test-infra/jobs/e2e_node/image-config-1-10.yaml
+      - --node-args=--image-config-file=/workspace/test-infra/jobs/e2e_node/image-config-1-11.yaml
       - --node-test-args=--kubelet-flags="--cgroups-per-qos=true --cgroup-root=/"
       - --node-tests=true
       - --provider=gce
@@ -362,9 +362,9 @@ periodics:
     preset-k8s-ssh: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-1.9
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-1.10
       args:
-      - --repo=k8s.io/kubernetes=release-1.9
+      - --repo=k8s.io/kubernetes=release-1.10
       - --timeout=90
       - --root=/go/src
       - --scenario=kubernetes_e2e
@@ -372,7 +372,7 @@ periodics:
       - --deployment=node
       - --gcp-project=k8s-jkns-ci-node-e2e
       - --gcp-zone=us-central1-f
-      - --node-args=--image-config-file=/workspace/test-infra/jobs/e2e_node/image-config-1-9.yaml
+      - --node-args=--image-config-file=/workspace/test-infra/jobs/e2e_node/image-config-1-10.yaml
       - --node-test-args=--kubelet-flags="--cgroups-per-qos=true --cgroup-root=/"
       - --node-tests=true
       - --provider=gce

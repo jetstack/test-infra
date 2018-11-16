@@ -26,26 +26,44 @@ import argparse
 import ruamel.yaml as yaml
 
 MAP = {
-    "-beta": "-1.12",
-    "-stable1": "-1.11",
-    "-stable2": "-1.10",
-    "-stable3": "-1.9",
+    "-beta": "-1.13",
+    "-stable1": "-1.12",
+    "-stable2": "-1.11",
+    "-stable3": "-1.10",
 
-    "-k8sbeta": "-1.12",
-    "-k8sstable1": "-1.11",
-    "-k8sstable2": "-1.10",
-    "-k8sstable3": "-1.9",
+    "-k8sbeta": "-1.13",
+    "-k8sstable1": "-1.12",
+    "-k8sstable2": "-1.11",
+    "-k8sstable3": "-1.10",
 
+    "-1-12": "-1.12",
+    "-1-11": "-1.11",
+    "-1-10": "-1.10",
+    "-1-9": "-1.9",
+
+    "ci-cri-": "",
     "ci-kubernetes-": "",
     "e2e-": "",
+    "periodic-kubernetes-": "periodic-",
 }
 
 DASHBOARD_PREFIX = [
-    "sig-cluster-lifecycle-all"
+    "google-aws",
+    "google-gce",
+    "google-gke",
+    "google-unit",
+    "sig-cluster-lifecycle-all",
     "sig-cluster-lifecycle-kops",
     "sig-cluster-lifecycle-upgrade-skew",
+    "sig-gcp-release-1.",
+    "sig-instrumentation",
     "sig-release-1.",
+    "sig-network-gce",
+    "sig-network-gke",
+    "sig-node-cri-1.",
+    "sig-node-kubelet",
     "sig-release-master-upgrade",
+    "sig-scalability-gce",
 ]
 
 

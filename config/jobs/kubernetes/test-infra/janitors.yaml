@@ -35,21 +35,23 @@ periodics:
   labels:
     preset-service-account: "true"
   decorate: true
-  path_alias: "k8s.io/test-infra"
   extra_refs:
   - org: kubernetes
     repo: test-infra
     base_ref: master
+    path_alias: k8s.io/test-infra
   spec:
     containers:
     - command:
+      - runner.sh
+      args:
       - go
       - run
       - experiment/ci-janitor/main.go
       - --config-path=prow/config.yaml
       - --job-config-path=config/jobs
       - --janitor-path=boskos/janitor/janitor.py
-      image: gcr.io/k8s-testimages/gcloud-in-go:v20180725-a495f0247
+      image: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-master
       resources:
         requests:
           cpu: 5
@@ -70,7 +72,7 @@ periodics:
       - --
       - --mode=pr
       env:
-      image: gcr.io/k8s-testimages/gcloud-in-go:v20180725-a495f0247
+      image: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-experimental
       resources:
         requests:
           cpu: 5
@@ -92,7 +94,7 @@ periodics:
       - --mode=scale
       - --ratelimit=5
       env:
-      image: gcr.io/k8s-testimages/gcloud-in-go:v20180725-a495f0247
+      image: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-experimental
       resources:
         requests:
           cpu: 5

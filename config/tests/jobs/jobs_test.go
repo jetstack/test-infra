@@ -41,7 +41,7 @@ import (
 
 var configPath = flag.String("config", "../../../prow/config.yaml", "Path to prow config")
 var jobConfigPath = flag.String("job-config", "../../jobs", "Path to prow job config")
-var gubernatorPath = flag.String("gubernator-path", "https://k8s-gubernator.appspot.com", "Path to linked gubernator")
+var gubernatorPath = flag.String("gubernator-path", "https://gubernator.k8s.io", "Path to linked gubernator")
 var bucket = flag.String("bucket", "kubernetes-jenkins", "Gcs bucket for log upload")
 var k8sProw = flag.Bool("k8s-prow", true, "If the config is for k8s prow cluster")
 
@@ -141,6 +141,16 @@ func TestURLTemplate(t *testing.T) {
 			job:     "k8s-pre-1",
 			build:   "1",
 			expect:  *gubernatorPath + "/build/" + *bucket + "/pr-logs/pull/0/k8s-pre-1/1/",
+			k8sOnly: true,
+		},
+		{
+			name:    "k8s-security presubmit",
+			jobType: kube.PresubmitJob,
+			org:     "kubernetes-security",
+			repo:    "kubernetes",
+			job:     "k8s-pre-1",
+			build:   "1",
+			expect:  "https://console.cloud.google.com/storage/browser/kubernetes-security-prow/pr-logs/pull/kubernetes-security_kubernetes/0/k8s-pre-1/1/",
 			k8sOnly: true,
 		},
 		{
@@ -335,14 +345,6 @@ func TestTrustedJobs(t *testing.T) {
 		if per.SourcePath != trustedPath {
 			t.Errorf("%s defined in %s may not run in trusted cluster", per.Name, per.SourcePath)
 		}
-	}
-}
-
-func TestConfigSecurityJobsMatch(t *testing.T) {
-	kp := c.Presubmits["kubernetes/kubernetes"]
-	sp := c.Presubmits["kubernetes-security/kubernetes"]
-	if len(kp) != len(sp) {
-		t.Fatalf("length of kubernetes/kubernetes presubmits %d does not equal length of kubernetes-security/kubernetes presubmits %d", len(kp), len(sp))
 	}
 }
 
@@ -904,11 +906,11 @@ func checkScenarioArgs(jobName, imageName string, args []string) error {
 	for _, arg := range args {
 		ginkgo_args := ""
 		if strings.HasPrefix(arg, "--test_args=") {
-			splitted := strings.SplitN(arg, "=", 2)
-			ginkgo_args = splitted[1]
+			split := strings.SplitN(arg, "=", 2)
+			ginkgo_args = split[1]
 		} else if strings.HasPrefix(arg, "--upgrade_args=") {
-			splitted := strings.SplitN(arg, "=", 2)
-			ginkgo_args = splitted[1]
+			split := strings.SplitN(arg, "=", 2)
+			ginkgo_args = split[1]
 		}
 
 		if strings.Contains(ginkgo_args, "\\\\") {

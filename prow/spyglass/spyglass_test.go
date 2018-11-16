@@ -190,11 +190,9 @@ func dumpViewHandler(artifacts []viewers.Artifact, raw string) string {
 
 func TestViews(t *testing.T) {
 	fakeGCSClient := fakeGCSServer.Client()
-	testAf := NewGCSArtifactFetcher(fakeGCSClient)
 	testCases := []struct {
 		name               string
 		registeredViewers  map[string]viewers.ViewMetadata
-		fetchers           []ArtifactFetcher
 		matchCache         map[string][]string
 		expectedLensTitles []string
 	}{
@@ -206,15 +204,13 @@ func TestViews(t *testing.T) {
 					Priority: 0,
 				},
 			},
-			fetchers: []ArtifactFetcher{testAf},
 			matchCache: map[string][]string{
 				"metadata-viewer": {"started.json"},
 			},
 			expectedLensTitles: []string{"MetadataView"},
 		},
 		{
-			name:     "Spyglass no matches",
-			fetchers: []ArtifactFetcher{testAf},
+			name: "Spyglass no matches",
 			registeredViewers: map[string]viewers.ViewMetadata{
 				"metadata-viewer": {
 					Title:    "MetadataView",
@@ -231,7 +227,7 @@ func TestViews(t *testing.T) {
 			for k, v := range tc.registeredViewers {
 				viewers.RegisterViewer(k, v, dumpViewHandler)
 			}
-			sg := New(fakeJa, tc.fetchers)
+			sg := New(fakeJa, fakeGCSClient)
 			lenses := sg.Views(tc.matchCache)
 			for _, l := range lenses {
 				var found bool
@@ -256,5 +252,187 @@ func TestViews(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestSplitSrc(t *testing.T) {
+	testCases := []struct {
+		name       string
+		src        string
+		expKeyType string
+		expKey     string
+		expError   bool
+	}{
+		{
+			name:     "empty string",
+			src:      "",
+			expError: true,
+		},
+		{
+			name:     "missing key",
+			src:      "gcs",
+			expError: true,
+		},
+		{
+			name:       "prow key",
+			src:        "prowjob/example-job-name/123456",
+			expKeyType: "prowjob",
+			expKey:     "example-job-name/123456",
+		},
+		{
+			name:       "gcs key",
+			src:        "gcs/kubernetes-jenkins/pr-logs/pull/test-infra/0000/example-job-name/314159/",
+			expKeyType: "gcs",
+			expKey:     "kubernetes-jenkins/pr-logs/pull/test-infra/0000/example-job-name/314159/",
+		},
+	}
+	for _, tc := range testCases {
+		keyType, key, err := splitSrc(tc.src)
+		if tc.expError && err == nil {
+			t.Errorf("test %q expected error", tc.name)
+		}
+		if !tc.expError && err != nil {
+			t.Errorf("test %q encountered unexpected error: %v", tc.name, err)
+		}
+		if keyType != tc.expKeyType || key != tc.expKey {
+			t.Errorf("test %q: splitting src %q: Expected <%q, %q>, got <%q, %q>",
+				tc.name, tc.src, tc.expKeyType, tc.expKey, keyType, key)
+		}
+	}
+}
+
+func TestJobPath(t *testing.T) {
+	kc := fkc{
+		kube.ProwJob{
+			Spec: kube.ProwJobSpec{
+				Type: kube.PeriodicJob,
+				Job:  "example-periodic-job",
+				DecorationConfig: &kube.DecorationConfig{
+					GCSConfiguration: &kube.GCSConfiguration{
+						Bucket: "chum-bucket",
+					},
+				},
+			},
+			Status: kube.ProwJobStatus{
+				PodName: "flying-whales",
+				BuildID: "1111",
+			},
+		},
+		kube.ProwJob{
+			Spec: kube.ProwJobSpec{
+				Type: kube.PresubmitJob,
+				Job:  "example-presubmit-job",
+				DecorationConfig: &kube.DecorationConfig{
+					GCSConfiguration: &kube.GCSConfiguration{
+						Bucket: "chum-bucket",
+					},
+				},
+			},
+			Status: kube.ProwJobStatus{
+				PodName: "flying-whales",
+				BuildID: "2222",
+			},
+		},
+		kube.ProwJob{
+			Spec: kube.ProwJobSpec{
+				Type: kube.PresubmitJob,
+				Job:  "undecorated-job",
+			},
+			Status: kube.ProwJobStatus{
+				PodName: "flying-whales",
+				BuildID: "1",
+			},
+		},
+		kube.ProwJob{
+			Spec: kube.ProwJobSpec{
+				Type:             kube.PresubmitJob,
+				Job:              "missing-gcs-job",
+				DecorationConfig: &kube.DecorationConfig{},
+			},
+			Status: kube.ProwJobStatus{
+				PodName: "flying-whales",
+				BuildID: "1",
+			},
+		},
+	}
+	fakeJa = jobs.NewJobAgent(kc, map[string]jobs.PodLogClient{kube.DefaultClusterAlias: fpkc("clusterA"), "trusted": fpkc("clusterB")}, &config.Agent{})
+	fakeJa.Start()
+	testCases := []struct {
+		name       string
+		src        string
+		expJobPath string
+		expError   bool
+	}{
+		{
+			name:       "non-presubmit job in GCS with trailing /",
+			src:        "gcs/kubernetes-jenkins/logs/example-job-name/123/",
+			expJobPath: "kubernetes-jenkins/logs/example-job-name",
+		},
+		{
+			name:       "non-presubmit job in GCS without trailing /",
+			src:        "gcs/kubernetes-jenkins/logs/example-job-name/123",
+			expJobPath: "kubernetes-jenkins/logs/example-job-name",
+		},
+		{
+			name:       "presubmit job in GCS with trailing /",
+			src:        "gcs/kubernetes-jenkins/pr-logs/pull/test-infra/0000/example-job-name/314159/",
+			expJobPath: "kubernetes-jenkins/pr-logs/directory/example-job-name",
+		},
+		{
+			name:       "presubmit job in GCS without trailing /",
+			src:        "gcs/kubernetes-jenkins/pr-logs/pull/test-infra/0000/example-job-name/314159",
+			expJobPath: "kubernetes-jenkins/pr-logs/directory/example-job-name",
+		},
+		{
+			name:       "non-presubmit Prow job",
+			src:        "prowjob/example-periodic-job/1111",
+			expJobPath: "chum-bucket/logs/example-periodic-job",
+		},
+		{
+			name:       "Prow presubmit job",
+			src:        "prowjob/example-presubmit-job/2222",
+			expJobPath: "chum-bucket/pr-logs/directory/example-presubmit-job",
+		},
+		{
+			name:     "nonexistent job",
+			src:      "prowjob/example-periodic-job/0000",
+			expError: true,
+		},
+		{
+			name:     "invalid key type",
+			src:      "oh/my/glob/drama/bomb",
+			expError: true,
+		},
+		{
+			name:     "invalid GCS path",
+			src:      "gcs/kubernetes-jenkins/bad-path",
+			expError: true,
+		},
+		{
+			name:     "job missing decoration",
+			src:      "prowjob/undecorated-job/1",
+			expError: true,
+		},
+		{
+			name:     "job missing GCS config",
+			src:      "prowjob/missing-gcs-job/1",
+			expError: true,
+		},
+	}
+	for _, tc := range testCases {
+		fakeGCSClient := fakeGCSServer.Client()
+		sg := New(fakeJa, fakeGCSClient)
+		jobPath, err := sg.JobPath(tc.src)
+		if tc.expError && err == nil {
+			t.Errorf("test %q: JobPath(%q) expected error", tc.name, tc.src)
+			continue
+		}
+		if !tc.expError && err != nil {
+			t.Errorf("test %q: JobPath(%q) returned unexpected error %v", tc.name, tc.src, err)
+			continue
+		}
+		if jobPath != tc.expJobPath {
+			t.Errorf("test %q: JobPath(%q) expected %q, got %q", tc.name, tc.src, tc.expJobPath, jobPath)
+		}
 	}
 }

@@ -5,6 +5,7 @@ metadata:
     prow.k8s.io/job: kubernetes-explicit-decoration
   creationTimestamp: null
   labels:
+    created-by-prow: "true"
     prow.k8s.io/job: kubernetes-explicit-decoration
     prow.k8s.io/refs.org: test-org
     prow.k8s.io/refs.pull: "1"
@@ -18,6 +19,8 @@ spec:
   decoration_config:
     gcs_configuration:
       bucket: explicit-bucket
+      default_org: kubernetes
+      default_repo: kubernetes
       path_strategy: explicit
     gcs_credentials_secret: explicit-service-account
     grace_period: 1
@@ -49,6 +52,5 @@ spec:
   rerun_command: /test kubernetes-explicit-decoration
   type: presubmit
 status:
-  prev_report_state: ""
   startTime: 2018-07-06T22:59:02Z
   state: triggered

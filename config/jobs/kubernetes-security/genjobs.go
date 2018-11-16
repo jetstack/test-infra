@@ -119,7 +119,13 @@ func undoPresubmitPresets(presets []config.Preset, presubmit *config.Presubmit) 
 // convert a kubernetes/kubernetes job to a kubernetes-security/kubernetes job
 // dropLabels should be a set of "k: v" strings
 // xref: prow/config/config_test.go replace(...)
-func convertJobToSecurityJob(j *config.Presubmit, dropLabels sets.String) {
+// it will return the same job mutated, or nil if the job should be removed
+func convertJobToSecurityJob(j *config.Presubmit, dropLabels sets.String, podNamespace string) *config.Presubmit {
+	// if a GKE job, disable it
+	if strings.Contains(j.Name, "gke") {
+		return nil
+	}
+
 	// filter out the unwanted labels
 	if len(j.Labels) > 0 {
 		filteredLabels := make(map[string]string)
@@ -138,6 +144,9 @@ func convertJobToSecurityJob(j *config.Presubmit, dropLabels sets.String) {
 	j.RerunCommand = strings.Replace(j.RerunCommand, "pull-kubernetes", "pull-security-kubernetes", -1)
 	j.Trigger = strings.Replace(j.Trigger, "pull-kubernetes", "pull-security-kubernetes", -1)
 	j.Context = strings.Replace(j.Context, "pull-kubernetes", "pull-security-kubernetes", -1)
+	if j.Namespace != nil && *j.Namespace == podNamespace {
+		j.Namespace = nil
+	}
 
 	// handle k8s job args, volumes etc
 	if j.Agent == "kubernetes" {
@@ -148,6 +157,7 @@ func convertJobToSecurityJob(j *config.Presubmit, dropLabels sets.String) {
 		needGCSFlag := false
 		needGCSSharedFlag := false
 		needStagingFlag := false
+		isGCPe2e := false
 		for i, arg := range container.Args {
 			if arg == "--" {
 				endsWithScenarioArgs = true
@@ -194,6 +204,9 @@ func convertJobToSecurityJob(j *config.Presubmit, dropLabels sets.String) {
 
 		if scenario == "kubernetes_e2e" {
 			for _, arg := range container.Args {
+				if strings.Contains(arg, "gcp") {
+					isGCPe2e = true
+				}
 				if strings.HasPrefix(arg, "--stage") {
 					needStagingFlag = true
 				} else if strings.HasPrefix(arg, "--use-shared-build") {
@@ -214,6 +227,10 @@ func convertJobToSecurityJob(j *config.Presubmit, dropLabels sets.String) {
 		}
 		if needStagingFlag {
 			container.Args = append(container.Args, "--stage=gs://kubernetes-security-prow/ci/"+j.Name)
+		}
+		// GCP e2e use a fixed project for security testing
+		if isGCPe2e {
+			container.Args = append(container.Args, "--gcp-project=k8s-jkns-pr-gce-etcd3")
 		}
 
 		// add ssh key volume / mount
@@ -239,9 +256,17 @@ func convertJobToSecurityJob(j *config.Presubmit, dropLabels sets.String) {
 		)
 	}
 	// done with this job, check for run_after_success
-	for i := range j.RunAfterSuccess {
-		convertJobToSecurityJob(&j.RunAfterSuccess[i], dropLabels)
+	if len(j.RunAfterSuccess) > 0 {
+		filteredRunAfterSucces := []config.Presubmit{}
+		for i := range j.RunAfterSuccess {
+			newJob := convertJobToSecurityJob(&j.RunAfterSuccess[i], dropLabels, podNamespace)
+			if newJob != nil {
+				filteredRunAfterSucces = append(filteredRunAfterSucces, *newJob)
+			}
+		}
+		j.RunAfterSuccess = filteredRunAfterSucces
 	}
+	return j
 }
 
 // these are unnecessary, and make the config larger so we strip them out
@@ -334,7 +359,10 @@ func main() {
 		// undo merged presets, this needs to occur first!
 		undoPresubmitPresets(parsed.Presets, job)
 		// now convert the job
-		convertJobToSecurityJob(job, dropLabels)
+		job = convertJobToSecurityJob(job, dropLabels, parsed.PodNamespace)
+		if job == nil {
+			continue
+		}
 		jobBytes, err := yaml.Marshal(job)
 		if err != nil {
 			log.Fatalf("Failed to marshal job: %v", err)

@@ -15,7 +15,7 @@
 # This file creates a build environment for building and running kubernetes
 # unit and integration tests
 
-FROM gcr.io/k8s-testimages/bootstrap:v20180912-f97e35a46
+FROM gcr.io/k8s-testimages/bootstrap:v20181010-45051ef05
 LABEL maintainer "Sen Lu <senlu@google.com>"
 
 # hint to kubetest that it is in CI
@@ -61,9 +61,8 @@ RUN wget -q "https://storage.googleapis.com/golang/${GO_TARBALL}" && \
 # install bazel
 ARG BAZEL_VERSION_ARG
 ENV BAZEL_VERSION=${BAZEL_VERSION_ARG}
-RUN INSTALLER="bazel-${BAZEL_VERSION}-installer-linux-x86_64.sh"; \
-    wget -q "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/${INSTALLER}" && \
-    chmod +x "${INSTALLER}" && "./${INSTALLER}" && rm "${INSTALLER}"
+COPY ./install-bazel.sh /
+RUN bash /install-bazel.sh
 
 # if UPGRADE_DOCKER_ARG, then install the latest docker over whatever we have
 # in the base image.

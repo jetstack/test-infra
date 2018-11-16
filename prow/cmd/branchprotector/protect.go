@@ -20,7 +20,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"net/url"
+	"os"
 	"strings"
 	"sync"
 
@@ -35,40 +35,30 @@ import (
 type options struct {
 	config    string
 	jobConfig string
-	token     string
 	confirm   bool
-	endpoint  flagutil.Strings
+	github    flagutil.GitHubOptions
 }
 
 func (o *options) Validate() error {
+	if err := o.github.Validate(!o.confirm); err != nil {
+		return err
+	}
+
 	if o.config == "" {
 		return errors.New("empty --config-path")
-	}
-
-	if o.token == "" {
-		return errors.New("empty --github-token-path")
-	}
-
-	for _, ep := range o.endpoint.Strings() {
-		_, err := url.Parse(ep)
-		if err != nil {
-			return fmt.Errorf("invalid --endpoint URL %q: %v", ep, err)
-		}
 	}
 
 	return nil
 }
 
 func gatherOptions() options {
-	o := options{
-		endpoint: flagutil.NewStrings("https://api.github.com"),
-	}
-	flag.StringVar(&o.config, "config-path", "", "Path to prow config.yaml")
-	flag.StringVar(&o.jobConfig, "job-config-path", "", "Path to prow job configs.")
-	flag.BoolVar(&o.confirm, "confirm", false, "Mutate github if set")
-	flag.Var(&o.endpoint, "github-endpoint", "Github api endpoint, may differ for enterprise")
-	flag.StringVar(&o.token, "github-token-path", "", "Path to github token")
-	flag.Parse()
+	o := options{}
+	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	fs.StringVar(&o.config, "config-path", "", "Path to prow config.yaml")
+	fs.StringVar(&o.jobConfig, "job-config-path", "", "Path to prow job configs.")
+	fs.BoolVar(&o.confirm, "confirm", false, "Mutate github if set")
+	o.github.AddFlags(fs)
+	fs.Parse(os.Args[1:])
 	return o
 }
 
@@ -108,21 +98,18 @@ func main() {
 	}
 
 	secretAgent := &config.SecretAgent{}
-	if err := secretAgent.Start([]string{o.token}); err != nil {
+	if err := secretAgent.Start([]string{o.github.TokenPath}); err != nil {
 		logrus.WithError(err).Fatal("Error starting secrets agent.")
 	}
 
-	var c *github.Client
-
-	if o.confirm {
-		c = github.NewClient(secretAgent.GetTokenGenerator(o.token), o.endpoint.Strings()...)
-	} else {
-		c = github.NewDryRunClient(secretAgent.GetTokenGenerator(o.token), o.endpoint.Strings()...)
+	githubClient, err := o.github.GitHubClient(secretAgent, !o.confirm)
+	if err != nil {
+		logrus.WithError(err).Fatal("Error getting GitHub client.")
 	}
-	c.Throttle(300, 100) // 300 hourly tokens, bursts of 100
+	githubClient.Throttle(300, 100) // 300 hourly tokens, bursts of 100
 
 	p := protector{
-		client:         c,
+		client:         githubClient,
 		cfg:            cfg,
 		updates:        make(chan requirements),
 		errors:         Errors{},
@@ -210,7 +197,6 @@ func (p *protector) protect() {
 // UpdateOrg updates all repos in the org with the specified defaults
 func (p *protector) UpdateOrg(orgName string, org config.Org, allRepos bool) error {
 	var repos []string
-	allRepos = allRepos || org.HasProtect()
 	if allRepos {
 		// Strongly opinionated org, configure every repo in the org.
 		rs, err := p.client.GetRepos(orgName, false)
@@ -218,7 +204,9 @@ func (p *protector) UpdateOrg(orgName string, org config.Org, allRepos bool) err
 			return fmt.Errorf("GetRepos(%s) failed: %v", orgName, err)
 		}
 		for _, r := range rs {
-			repos = append(repos, r.Name)
+			if !r.Archived {
+				repos = append(repos, r.Name)
+			}
 		}
 	} else {
 		// Unopinionated org, just set explicitly defined repos
@@ -261,7 +249,7 @@ func (p *protector) UpdateRepo(orgName string, repo string, repoDefaults config.
 
 // UpdateBranch updates the branch with the specified configuration
 func (p *protector) UpdateBranch(orgName, repo string, branchName string, protected bool) error {
-	bp, err := p.cfg.GetBranchProtection(orgName, repo, branchName)
+	bp, err := p.cfg.GetBranchProtection(orgName, repo, branchName) // this merges parent config into children
 	if err != nil {
 		return err
 	}

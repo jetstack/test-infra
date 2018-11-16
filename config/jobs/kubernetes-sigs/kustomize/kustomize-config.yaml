@@ -6,11 +6,11 @@ periodics:
     preset-k8s-ssh: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20180912-7a027de0c-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20181105-66d3bcb98-master
       args:
       - "--job=$(JOB_NAME)"
       - "--root=/go/src"
-      - "--repo=github.com/kubernetes-sigs/kustomize"
+      - "--repo=sigs.k8s.io/kustomize"
       - "--upload=gs://kubernetes-jenkins/logs/"
       - "--timeout=150"
       - --scenario=kubernetes_e2e

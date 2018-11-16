@@ -40,6 +40,7 @@ type ReportMessage struct {
 	Topic   string            `json:"topic"`
 	RunID   string            `json:"runid"`
 	Status  kube.ProwJobState `json:"status"`
+	URL     string            `json:"url"`
 }
 
 // Client is a reporter client fed to crier controller
@@ -53,6 +54,11 @@ type Client struct {
 // NewReporter creates a new Pub/Sub reporter
 func NewReporter() *Client {
 	return &Client{}
+}
+
+// GetName returns the name of the reporter
+func (c *Client) GetName() string {
+	return "pubsub-reporter"
 }
 
 // ShouldReport tells if a prowjob should be reported by this reporter
@@ -100,6 +106,7 @@ func generateMessageFromPJ(pj *kube.ProwJob) *ReportMessage {
 		Topic:   topicName,
 		RunID:   runID,
 		Status:  pj.Status.State,
+		URL:     pj.Status.URL,
 	}
 
 	return psReport

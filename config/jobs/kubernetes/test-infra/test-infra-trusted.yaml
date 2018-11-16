@@ -5,7 +5,8 @@ postsubmits:
     decorate: true
     spec:
       containers:
-      - image: gcr.io/cloud-builders/bazel
+      - image: launcher.gcr.io/google/bazel
+        imagePullPolicy: Always
         command:
         - bazel
         args:
@@ -13,7 +14,7 @@ postsubmits:
         - //admin:update
         - --
         - --github-token-path=/etc/github-token/oauth
-        # TODO(fejta): --confirm
+        - --confirm
         volumeMounts:
         - name: github
           mountPath: /etc/github-token
@@ -21,6 +22,48 @@ postsubmits:
       - name: github
         secret:
           secretName: oauth-token
+  kubernetes/test-infra:
+  - name: post-test-infra-deploy-prow
+    cluster: test-infra-trusted
+    decorate: true
+    branches:
+    - master
+    spec:
+      containers:
+      - image: gcr.io/k8s-testimages/gcloud-bazel:v20181107-d88dbbf
+        command:
+        - prow/deploy.sh
+        args:
+        - --confirm
+        env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /creds/service-account.json
+        volumeMounts:
+        - name: creds
+          mountPath: /creds
+      volumes:
+      - name: creds
+        secret:
+          secretName: deployer-service-account
+
+  - name: post-test-infra-push-prow
+    cluster: test-infra-trusted
+    decorate: true
+    spec:
+      containers:
+      - image: gcr.io/k8s-testimages/gcloud-bazel:v20181107-d88dbbf
+        command:
+        - prow/bump.sh
+        env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /creds/service-account.json
+        volumeMounts:
+        - name: creds
+          mountPath: /creds
+      volumes:
+      - name: creds
+        secret:
+          secretName: pusher-service-account
 
 periodics:
 - interval: 24h
@@ -33,7 +76,8 @@ periodics:
     base_ref: master
   spec:
     containers:
-    - image: gcr.io/cloud-builders/bazel
+    - image: launcher.gcr.io/google/bazel
+      imagePullPolicy: Always
       command:
       - bazel
       args:
@@ -41,7 +85,7 @@ periodics:
       - //admin:update
       - --
       - --github-token-path=/etc/github-token/oauth
-      # TODO(fejta): --confirm
+      - --confirm
       volumeMounts:
       - name: github
         mountPath: /etc/github-token
