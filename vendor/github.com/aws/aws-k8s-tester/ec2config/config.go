@@ -15,8 +15,7 @@ import (
 
 	"github.com/aws/aws-k8s-tester/ec2config/plugins"
 	ec2types "github.com/aws/aws-k8s-tester/pkg/awsapi/ec2"
-
-	gyaml "github.com/ghodss/yaml"
+	"sigs.k8s.io/yaml"
 )
 
 // Config defines EC2 configuration.
@@ -46,6 +45,10 @@ type Config struct {
 	LogOutputToUploadPathURL    string `json:"log-output-to-upload-path-url,omitempty"`
 	// UploadTesterLogs is true to auto-upload log files.
 	UploadTesterLogs bool `json:"upload-tester-logs"`
+
+	// UploadBucketExpireDays is the number of days for objects in S3 bucket to expire.
+	// Set 0 to not expire.
+	UploadBucketExpireDays int `json:"upload-bucket-expire-days"`
 
 	// Tag is the tag used for all cloudformation stacks.
 	Tag string `json:"tag,omitempty"`
@@ -103,13 +106,19 @@ type Config struct {
 	KeyPath       string `json:"key-path,omitempty"`
 	KeyPathBucket string `json:"key-path-bucket,omitempty"`
 	KeyPathURL    string `json:"key-path-url,omitempty"`
+	// KeyCreateSkip is true to indicate that EC2 key pair has been created, so needs no creation.
+	KeyCreateSkip bool `json:"key-created,omitempty"`
+	// KeyCreated is true to indicate that EC2 key pair has been created, so needs be cleaned later.
+	KeyCreated bool `json:"key-created,omitempty"`
 
 	// VPCCIDR is the VPC CIDR.
 	VPCCIDR string `json:"vpc-cidr"`
 	// VPCID is the VPC ID to use.
 	// Leave empty to create a temporary one.
-	VPCID      string `json:"vpc-id"`
-	VPCCreated bool   `json:"vpc-created"`
+	VPCID string `json:"vpc-id"`
+	// VPCCreated is true to indicate that EC2 VPC has been created, so needs be cleaned later.
+	// Set this to false, if the VPC is reused from somewhere else, so the original VPC creator deletes the VPC.
+	VPCCreated bool `json:"vpc-created"`
 	// InternetGatewayID is the internet gateway ID.
 	InternetGatewayID string `json:"internet-gateway-id,omitempty"`
 	// RouteTableIDs is the list of route table IDs.
@@ -119,10 +128,10 @@ type Config struct {
 	// If empty, it will fetch subnets from a given or created VPC.
 	// And randomly assign them to instances.
 	SubnetIDs                  []string          `json:"subnet-ids,omitempty"`
-	SubnetIDToAvailibilityZone map[string]string `json:"subnet-id-to-availability-zone,omitempty"` // read-only to user
+	SubnetIDToAvailabilityZone map[string]string `json:"subnet-id-to-availability-zone,omitempty"` // read-only to user
 
-	// IngressCIDRs is a map from TCP port to CIDR to allow via security groups.
-	IngressCIDRs map[int64]string `json:"ingress-cidrs,omitempty"`
+	// IngressRulesTCP is a map from TCP port range to CIDR to allow via security groups.
+	IngressRulesTCP map[string]string `json:"ingress-rules-tcp,omitempty"`
 
 	// SecurityGroupIDs is the list of security group IDs.
 	// Leave empty to create a temporary one.
@@ -136,6 +145,12 @@ type Config struct {
 
 	// Wait is true to wait until all EC2 instances are ready.
 	Wait bool `json:"wait"`
+
+	// InstanceProfileName is the name of an instance profile with permissions to manage EC2 instances.
+	InstanceProfileName string `json:"instance-profile-name,omitempty"`
+
+	// CustomScript is executed at the end of EC2 init script.
+	CustomScript string `json:"custom-script,omitempty"`
 }
 
 // Instance represents an EC2 instance.
@@ -195,7 +210,7 @@ type SecurityGroup struct {
 func genTag() string {
 	// use UTC time for everything
 	now := time.Now().UTC()
-	return fmt.Sprintf("awsk8stester-ec2-%d%02d%02d", now.Year(), now.Month(), now.Day())
+	return fmt.Sprintf("a8t-ec2-%d%x%x", now.Year()-2000, int(now.Month()), now.Day())
 }
 
 // NewDefault returns a copy of the default configuration.
@@ -204,12 +219,14 @@ func NewDefault() *Config {
 	return &vv
 }
 
+const envPfx = "AWS_K8S_TESTER_EC2_"
+
 // defaultConfig is the default configuration.
 //  - empty string creates a non-nil object for pointer-type field
 //  - omitting an entire field returns nil value
 //  - make sure to check both
 var defaultConfig = Config{
-	EnvPrefix: "AWS_K8S_TESTER_EC2_",
+	EnvPrefix: envPfx,
 	AWSRegion: "us-west-2",
 
 	WaitBeforeDown: time.Minute,
@@ -219,22 +236,16 @@ var defaultConfig = Config{
 
 	// default, stderr, stdout, or file name
 	// log file named with cluster name will be added automatically
-	LogOutputs:       []string{"stderr"},
-	UploadTesterLogs: false,
+	LogOutputs:             []string{"stderr"},
+	UploadTesterLogs:       false,
+	UploadBucketExpireDays: 2,
 
-	// Amazon Linux 2 AMI (HVM), SSD Volume Type
-	ImageID:  "ami-061e7ebbc234015fe",
+	// Amazon Linux 2 AMI (HVM), SSD Volume Type, amzn2-ami-hvm-2.0.20181114-x86_64-gp2
+	ImageID:  "ami-01bbe152bf19d0289",
 	UserName: "ec2-user",
 	Plugins: []string{
 		"update-amazon-linux-2",
-		"install-go1.11.2",
-		"install-docker-amazon-linux-2",
 	},
-
-	// Ubuntu Server 16.04 LTS (HVM), SSD Volume Type
-	// ImageID: "ami-ba602bc2",
-	// UserName: "ubuntu",
-	// Plugins: []string{"update-ubuntu"},
 
 	// 4 vCPU, 15 GB RAM
 	InstanceType: "m3.xlarge",
@@ -242,12 +253,15 @@ var defaultConfig = Config{
 
 	AssociatePublicIPAddress: true,
 
+	KeyCreateSkip: false,
+	KeyCreated:    false,
+
 	VPCCIDR: "192.168.0.0/16",
-	IngressCIDRs: map[int64]string{
-		22: "0.0.0.0/0",
+	IngressRulesTCP: map[string]string{
+		"22": "0.0.0.0/0",
 	},
 
-	Wait: false,
+	Wait: true,
 }
 
 // UpdateFromEnvs updates fields from environmental variables.
@@ -314,15 +328,11 @@ func (cfg *Config) UpdateFromEnvs() error {
 		case reflect.Map:
 			ss := strings.Split(sv, ",")
 			switch fieldName {
-			case "IngressCIDRs":
-				m := reflect.MakeMap(reflect.TypeOf(map[int64]string{}))
+			case "IngressRulesTCP":
+				m := reflect.MakeMap(reflect.TypeOf(map[string]string{}))
 				for i := range ss {
 					fields := strings.Split(ss[i], "=")
-					nv, nerr := strconv.ParseInt(fields[0], 10, 64)
-					if nerr != nil {
-						return fmt.Errorf("failed to parse IngressTCPPort %s (%v)", fields[0], nerr)
-					}
-					m.SetMapIndex(reflect.ValueOf(nv), reflect.ValueOf(fields[1]))
+					m.SetMapIndex(reflect.ValueOf(fields[0]), reflect.ValueOf(fields[1]))
 				}
 				vv.Field(i).Set(m)
 
@@ -374,7 +384,7 @@ func (cfg *Config) ValidateAndSetDefaults() (err error) {
 
 	if len(cfg.Plugins) > 0 && !cfg.InitScriptCreated {
 		txt := cfg.InitScript
-		cfg.InitScript, err = plugins.Create(cfg.UserName, cfg.Plugins)
+		cfg.InitScript, err = plugins.Create(cfg.UserName, cfg.CustomScript, cfg.Plugins)
 		if err != nil {
 			return err
 		}
@@ -396,7 +406,7 @@ func (cfg *Config) ValidateAndSetDefaults() (err error) {
 
 	if cfg.ConfigPath == "" {
 		var f *os.File
-		f, err = ioutil.TempFile(os.TempDir(), "awsk8stester-ec2config")
+		f, err = ioutil.TempFile(os.TempDir(), "a8t-ec2config")
 		if err != nil {
 			return err
 		}
@@ -404,7 +414,7 @@ func (cfg *Config) ValidateAndSetDefaults() (err error) {
 		f.Close()
 		os.RemoveAll(cfg.ConfigPath)
 	}
-	cfg.ConfigPathBucket = filepath.Join(cfg.ClusterName, "awsk8stester-ec2config.yaml")
+	cfg.ConfigPathBucket = filepath.Join(cfg.ClusterName, "a8t-ec2config.yaml")
 
 	cfg.LogOutputToUploadPath = filepath.Join(os.TempDir(), fmt.Sprintf("%s.log", cfg.ClusterName))
 	logOutputExist := false
@@ -418,12 +428,15 @@ func (cfg *Config) ValidateAndSetDefaults() (err error) {
 		// auto-insert generated log output paths to zap logger output list
 		cfg.LogOutputs = append(cfg.LogOutputs, cfg.LogOutputToUploadPath)
 	}
-	cfg.LogOutputToUploadPathBucket = filepath.Join(cfg.ClusterName, "awsk8stester-ec2.log")
+	cfg.LogOutputToUploadPathBucket = filepath.Join(cfg.ClusterName, "a8t-ec2.log")
 
 	if cfg.KeyName == "" {
 		cfg.KeyName = cfg.ClusterName
+	}
+	cfg.KeyPathBucket = filepath.Join(cfg.ClusterName, "a8t-ec2.key")
+	if cfg.KeyPath == "" {
 		var f *os.File
-		f, err = ioutil.TempFile(os.TempDir(), "awsk8stester-ec2.key")
+		f, err = ioutil.TempFile(os.TempDir(), "a8t-ec2.key")
 		if err != nil {
 			return err
 		}
@@ -431,7 +444,6 @@ func (cfg *Config) ValidateAndSetDefaults() (err error) {
 		f.Close()
 		os.RemoveAll(cfg.KeyPath)
 	}
-	cfg.KeyPathBucket = filepath.Join(cfg.ClusterName, "awsk8stester-ec2.key")
 
 	if _, ok := ec2types.InstanceTypes[cfg.InstanceType]; !ok {
 		return fmt.Errorf("unexpected InstanceType %q", cfg.InstanceType)
@@ -459,7 +471,7 @@ func Load(p string) (cfg *Config, err error) {
 		return nil, err
 	}
 	cfg = new(Config)
-	if err = gyaml.Unmarshal(d, cfg); err != nil {
+	if err = yaml.Unmarshal(d, cfg); err != nil {
 		return nil, err
 	}
 
@@ -483,7 +495,7 @@ func (cfg *Config) SSHCommands() (s string) {
 		s += fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" -i %s %s@%s
 `, cfg.KeyPath, cfg.UserName, v.PublicDNSName)
 	}
-	return s
+	return s + "\n"
 }
 
 // Sync persists current configuration and states to disk.
@@ -496,7 +508,7 @@ func (cfg *Config) Sync() (err error) {
 	}
 	cfg.UpdatedAt = time.Now().UTC()
 	var d []byte
-	d, err = gyaml.Marshal(cfg)
+	d, err = yaml.Marshal(cfg)
 	if err != nil {
 		return err
 	}

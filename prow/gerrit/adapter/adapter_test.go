@@ -128,6 +128,7 @@ func TestProcessChange(t *testing.T) {
 			change: client.ChangeInfo{
 				CurrentRevision: "1",
 				Project:         "test-infra",
+				Status:          "NEW",
 			},
 			shouldError: true,
 		},
@@ -136,6 +137,7 @@ func TestProcessChange(t *testing.T) {
 			change: client.ChangeInfo{
 				CurrentRevision: "1",
 				Project:         "woof",
+				Status:          "NEW",
 				Revisions: map[string]client.RevisionInfo{
 					"1": {},
 				},
@@ -146,6 +148,7 @@ func TestProcessChange(t *testing.T) {
 			change: client.ChangeInfo{
 				CurrentRevision: "1",
 				Project:         "test-infra",
+				Status:          "NEW",
 				Revisions: map[string]client.RevisionInfo{
 					"1": {
 						Ref: "refs/changes/00/1/1",
@@ -160,6 +163,7 @@ func TestProcessChange(t *testing.T) {
 			change: client.ChangeInfo{
 				CurrentRevision: "2",
 				Project:         "test-infra",
+				Status:          "NEW",
 				Revisions: map[string]client.RevisionInfo{
 					"1": {
 						Ref: "refs/changes/00/2/1",
@@ -177,6 +181,7 @@ func TestProcessChange(t *testing.T) {
 			change: client.ChangeInfo{
 				CurrentRevision: "1",
 				Project:         "other-repo",
+				Status:          "NEW",
 				Revisions: map[string]client.RevisionInfo{
 					"1": {
 						Ref: "refs/changes/00/1/1",
@@ -186,24 +191,110 @@ func TestProcessChange(t *testing.T) {
 			numPJ: 1,
 			pjRef: "refs/changes/00/1/1",
 		},
+		{
+			name: "merged change should trigger postsubmit",
+			change: client.ChangeInfo{
+				CurrentRevision: "1",
+				Project:         "postsubmits-project",
+				Status:          "MERGED",
+				Revisions: map[string]client.RevisionInfo{
+					"1": {
+						Ref: "refs/changes/00/1/1",
+					},
+				},
+			},
+			numPJ: 1,
+			pjRef: "refs/changes/00/1/1",
+		},
+		{
+			name: "merged change on project without postsubmits",
+			change: client.ChangeInfo{
+				CurrentRevision: "1",
+				Project:         "test-infra",
+				Status:          "MERGED",
+				Revisions: map[string]client.RevisionInfo{
+					"1": {
+						Ref: "refs/changes/00/1/1",
+					},
+				},
+			},
+		},
+		{
+			name: "presubmit runs when a file matches run_if_changed",
+			change: client.ChangeInfo{
+				CurrentRevision: "1",
+				Project:         "test-infra",
+				Status:          "NEW",
+				Revisions: map[string]client.RevisionInfo{
+					"1": {
+						Files: map[string]client.FileInfo{
+							"bee-movie-script.txt": {},
+							"africa-lyrics.txt":    {},
+							"important-code.go":    {},
+						},
+					},
+				},
+			},
+			numPJ: 2,
+		},
+		{
+			name: "presubmit doesn't run when no files match run_if_changed",
+			change: client.ChangeInfo{
+				CurrentRevision: "1",
+				Project:         "test-infra",
+				Status:          "NEW",
+				Revisions: map[string]client.RevisionInfo{
+					"1": {
+						Files: map[string]client.FileInfo{
+							"hacky-hack.sh": {},
+							"README.md":     {},
+							"let-it-go.txt": {},
+						},
+					},
+				},
+			},
+			numPJ: 1,
+		},
 	}
 
 	for _, tc := range testcases {
+		testInfraPresubmits := []config.Presubmit{
+			{
+				JobBase: config.JobBase{
+					Name: "test-foo",
+				},
+			},
+			{
+				JobBase: config.JobBase{
+					Name: "test-go",
+				},
+				RegexpChangeMatcher: config.RegexpChangeMatcher{
+					RunIfChanged: "\\.go",
+				},
+			},
+		}
+		if err := config.SetPresubmitRegexes(testInfraPresubmits); err != nil {
+			t.Fatalf("could not set regexes: %v", err)
+		}
+
 		fca := &fca{
 			c: &config.Config{
 				JobConfig: config.JobConfig{
 					Presubmits: map[string][]config.Presubmit{
-						"gerrit/test-infra": {
-							{
-								JobBase: config.JobBase{
-									Name: "test-foo",
-								},
-							},
-						},
+						"gerrit/test-infra": testInfraPresubmits,
 						"https://gerrit/other-repo": {
 							{
 								JobBase: config.JobBase{
 									Name: "other-test",
+								},
+							},
+						},
+					},
+					Postsubmits: map[string][]config.Postsubmit{
+						"gerrit/postsubmits-project": {
+							{
+								JobBase: config.JobBase{
+									Name: "test-bar",
 								},
 							},
 						},
