@@ -16,13 +16,14 @@ limitations under the License.
 
 package hook
 
-// All enabled plugins. We need to empty import them like this so that they
-// will be linked into any hook binary.
+// We need to empty import all enabled plugins so that they will be linked into
+// any hook binary.
 import (
-	_ "k8s.io/test-infra/prow/plugins/approve"
+	_ "k8s.io/test-infra/prow/plugins/approve" // Import all enabled plugins.
 	_ "k8s.io/test-infra/prow/plugins/assign"
 	_ "k8s.io/test-infra/prow/plugins/blockade"
 	_ "k8s.io/test-infra/prow/plugins/blunderbuss"
+	_ "k8s.io/test-infra/prow/plugins/branchcleaner"
 	_ "k8s.io/test-infra/prow/plugins/buildifier"
 	_ "k8s.io/test-infra/prow/plugins/cat"
 	_ "k8s.io/test-infra/prow/plugins/cherrypickunapproved"
@@ -41,6 +42,7 @@ import (
 	_ "k8s.io/test-infra/prow/plugins/milestonestatus"
 	_ "k8s.io/test-infra/prow/plugins/override"
 	_ "k8s.io/test-infra/prow/plugins/owners-label"
+	_ "k8s.io/test-infra/prow/plugins/pony"
 	_ "k8s.io/test-infra/prow/plugins/releasenote"
 	_ "k8s.io/test-infra/prow/plugins/require-matching-label"
 	_ "k8s.io/test-infra/prow/plugins/requiresig"

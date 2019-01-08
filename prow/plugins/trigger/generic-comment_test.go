@@ -295,7 +295,9 @@ func TestHandleGenericComment(t *testing.T) {
 						JobBase: config.JobBase{
 							Name: "jab",
 						},
-						RunIfChanged: "CHANGED",
+						RegexpChangeMatcher: config.RegexpChangeMatcher{
+							RunIfChanged: "CHANGED",
+						},
 						SkipReport:   true,
 						Context:      "pull-jab",
 						Trigger:      `/test all`,
@@ -318,7 +320,9 @@ func TestHandleGenericComment(t *testing.T) {
 						JobBase: config.JobBase{
 							Name: "jib",
 						},
-						RunIfChanged: "CHANGED",
+						RegexpChangeMatcher: config.RegexpChangeMatcher{
+							RunIfChanged: "CHANGED",
+						},
 						Context:      "pull-jib",
 						Trigger:      `/test all`,
 						RerunCommand: `/test all`,
@@ -340,7 +344,9 @@ func TestHandleGenericComment(t *testing.T) {
 						JobBase: config.JobBase{
 							Name: "jub",
 						},
-						RunIfChanged: "CHANGED",
+						RegexpChangeMatcher: config.RegexpChangeMatcher{
+							RunIfChanged: "CHANGED",
+						},
 						Context:      "pull-jub",
 						Trigger:      `/test jub`,
 						RerunCommand: `/test jub`,
@@ -362,7 +368,9 @@ func TestHandleGenericComment(t *testing.T) {
 						JobBase: config.JobBase{
 							Name: "jib",
 						},
-						RunIfChanged: "CHANGED2",
+						RegexpChangeMatcher: config.RegexpChangeMatcher{
+							RunIfChanged: "CHANGED2",
+						},
 						Context:      "pull-jib",
 						Trigger:      `/test all`,
 						RerunCommand: `/test all`,
@@ -383,7 +391,9 @@ func TestHandleGenericComment(t *testing.T) {
 						JobBase: config.JobBase{
 							Name: "jab",
 						},
-						RunIfChanged: "CHANGED",
+						RegexpChangeMatcher: config.RegexpChangeMatcher{
+							RunIfChanged: "CHANGED",
+						},
 						Context:      "pull-jab",
 						Trigger:      `/test all`,
 						RerunCommand: `/test all`,
@@ -471,7 +481,9 @@ func TestHandleGenericComment(t *testing.T) {
 						JobBase: config.JobBase{
 							Name: "jeb",
 						},
-						RunIfChanged: "CHANGED2",
+						RegexpChangeMatcher: config.RegexpChangeMatcher{
+							RunIfChanged: "CHANGED2",
+						},
 						Context:      "pull-jeb",
 						Trigger:      `/test all`,
 						RerunCommand: `/test all`,
@@ -493,7 +505,9 @@ func TestHandleGenericComment(t *testing.T) {
 						JobBase: config.JobBase{
 							Name: "jeb",
 						},
-						RunIfChanged: "CHANGED2",
+						RegexpChangeMatcher: config.RegexpChangeMatcher{
+							RunIfChanged: "CHANGED2",
+						},
 						Context:      "pull-jib",
 						Trigger:      `/test (all|pull-jeb)`,
 						RerunCommand: `/test pull-jeb`,
@@ -514,7 +528,9 @@ func TestHandleGenericComment(t *testing.T) {
 						JobBase: config.JobBase{
 							Name: "jub",
 						},
-						RunIfChanged: "CHANGED",
+						RegexpChangeMatcher: config.RegexpChangeMatcher{
+							RunIfChanged: "CHANGED",
+						},
 						Context:      "pull-jub",
 						Trigger:      `/test jub`,
 						RerunCommand: `/test jub`,
@@ -536,7 +552,9 @@ func TestHandleGenericComment(t *testing.T) {
 						JobBase: config.JobBase{
 							Name: "jub",
 						},
-						RunIfChanged: "CHANGED2",
+						RegexpChangeMatcher: config.RegexpChangeMatcher{
+							RunIfChanged: "CHANGED2",
+						},
 						Context:      "pull-jub",
 						Trigger:      `/test jub`,
 						RerunCommand: `/test jub`,
@@ -603,7 +621,7 @@ func TestHandleGenericComment(t *testing.T) {
 			},
 		}
 		kc := &fkc{}
-		c := client{
+		c := Client{
 			GitHubClient: g,
 			KubeClient:   kc,
 			Config:       &config.Config{},
@@ -685,10 +703,10 @@ func validate(kc *fkc, g *fakegithub.FakeClient, tc testcase, t *testing.T) {
 	} else if !tc.ShouldReport && len(g.CreatedStatuses) > 0 {
 		t.Errorf("Expected no reports to github, but got %d", len(g.CreatedStatuses))
 	}
-	if !reflect.DeepEqual(g.LabelsAdded, tc.AddedLabels) {
-		t.Errorf("expected %q to be added, got %q", tc.AddedLabels, g.LabelsAdded)
+	if !reflect.DeepEqual(g.IssueLabelsAdded, tc.AddedLabels) {
+		t.Errorf("expected %q to be added, got %q", tc.AddedLabels, g.IssueLabelsAdded)
 	}
-	if !reflect.DeepEqual(g.LabelsRemoved, tc.RemovedLabels) {
-		t.Errorf("expected %q to be removed, got %q", tc.RemovedLabels, g.LabelsRemoved)
+	if !reflect.DeepEqual(g.IssueLabelsRemoved, tc.RemovedLabels) {
+		t.Errorf("expected %q to be removed, got %q", tc.RemovedLabels, g.IssueLabelsRemoved)
 	}
 }

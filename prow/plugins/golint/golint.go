@@ -33,6 +33,7 @@ import (
 	"k8s.io/test-infra/prow/github"
 	"k8s.io/test-infra/prow/pluginhelp"
 	"k8s.io/test-infra/prow/plugins"
+	"k8s.io/test-infra/prow/plugins/golint/suggestion"
 )
 
 const (
@@ -79,7 +80,7 @@ func minConfidence(g *plugins.Golint) float64 {
 	return *g.MinimumConfidence
 }
 
-func handleGenericComment(pc plugins.PluginClient, e github.GenericCommentEvent) error {
+func handleGenericComment(pc plugins.Agent, e github.GenericCommentEvent) error {
 	return handle(minConfidence(pc.PluginConfig.Golint), pc.GitHubClient, pc.GitClient, pc.Logger, &e)
 }
 
@@ -233,12 +234,13 @@ func handle(minimumConfidence float64, ghc githubClient, gc *git.Client, log *lo
 	var comments []github.DraftReviewComment
 	for f, ls := range nps {
 		for l, p := range ls {
+			var suggestion = suggestion.SuggestCodeChange(p)
 			var body string
-			if p.Link == "" {
-				body = fmt.Sprintf("Golint %s: %s. %s", p.Category, p.Text, commentTag)
-			} else {
-				body = fmt.Sprintf("Golint %s: %s. [More info](%s). %s", p.Category, p.Text, p.Link, commentTag)
+			var link string
+			if p.Link != "" {
+				link = fmt.Sprintf("[More info](%s). ", p.Link)
 			}
+			body = fmt.Sprintf("%sGolint %s: %s. %s%s", suggestion, p.Category, p.Text, link, commentTag)
 			comments = append(comments, github.DraftReviewComment{
 				Path:     f,
 				Position: l,

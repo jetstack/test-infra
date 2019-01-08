@@ -26,7 +26,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/ghodss/yaml"
+	"sigs.k8s.io/yaml"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/test-infra/prow/github"
@@ -41,7 +41,7 @@ const prNumber = 1
 
 // TestPluginConfig validates that there are no duplicate repos in the approve plugin config.
 func TestPluginConfig(t *testing.T) {
-	pa := &plugins.PluginAgent{}
+	pa := &plugins.ConfigAgent{}
 
 	b, err := ioutil.ReadFile("../../plugins.yaml")
 	if err != nil {
@@ -126,7 +126,7 @@ func newFakeGithubClient(hasLabel, humanApproved bool, files []string, comments 
 		changes = append(changes, github.PullRequestChange{Filename: file})
 	}
 	return &fakegithub.FakeClient{
-		LabelsAdded:        labels,
+		IssueLabelsAdded:   labels,
 		PullRequestChanges: map[int][]github.PullRequestChange{prNumber: changes},
 		IssueComments:      map[int][]github.IssueComment{prNumber: comments},
 		IssueEvents:        map[int][]github.ListedIssueEvent{prNumber: events},
@@ -1080,7 +1080,7 @@ Approvers can cancel approval by writing ` + "`/approve cancel`" + ` in a commen
 		}
 
 		labelAdded := false
-		for _, l := range fghc.LabelsAdded {
+		for _, l := range fghc.IssueLabelsAdded {
 			if l == fmt.Sprintf("org/repo#%v:approved", prNumber) {
 				if labelAdded {
 					t.Errorf("[%s] The approved label was applied to a PR that already had it!", test.name)
@@ -1092,7 +1092,7 @@ Approvers can cancel approval by writing ` + "`/approve cancel`" + ` in a commen
 			labelAdded = false
 		}
 		toggled := labelAdded
-		for _, l := range fghc.LabelsRemoved {
+		for _, l := range fghc.IssueLabelsRemoved {
 			if l == fmt.Sprintf("org/repo#%v:approved", prNumber) {
 				if !test.hasLabel {
 					t.Errorf("[%s] The approved label was removed from a PR that doesn't have it!", test.name)
@@ -1116,7 +1116,7 @@ Approvers can cancel approval by writing ` + "`/approve cancel`" + ` in a commen
 
 type fakeOwnersClient struct{}
 
-func (foc fakeOwnersClient) LoadRepoOwners(org, repo, base string) (repoowners.RepoOwnerInterface, error) {
+func (foc fakeOwnersClient) LoadRepoOwners(org, repo, base string) (repoowners.RepoOwner, error) {
 	return fakeRepoOwners{}, nil
 }
 
@@ -1263,7 +1263,7 @@ func TestHandleGenericComment(t *testing.T) {
 
 	var handled bool
 	var gotState *state
-	handleFunc = func(log *logrus.Entry, ghc githubClient, repo approvers.RepoInterface, opts *plugins.Approve, pr *state) error {
+	handleFunc = func(log *logrus.Entry, ghc githubClient, repo approvers.Repo, opts *plugins.Approve, pr *state) error {
 		gotState = pr
 		handled = true
 		return nil
@@ -1471,7 +1471,7 @@ func TestHandleReview(t *testing.T) {
 
 	var handled bool
 	var gotState *state
-	handleFunc = func(log *logrus.Entry, ghc githubClient, repo approvers.RepoInterface, opts *plugins.Approve, pr *state) error {
+	handleFunc = func(log *logrus.Entry, ghc githubClient, repo approvers.Repo, opts *plugins.Approve, pr *state) error {
 		gotState = pr
 		handled = true
 		return nil
@@ -1628,7 +1628,7 @@ func TestHandlePullRequest(t *testing.T) {
 
 	var handled bool
 	var gotState *state
-	handleFunc = func(log *logrus.Entry, ghc githubClient, repo approvers.RepoInterface, opts *plugins.Approve, pr *state) error {
+	handleFunc = func(log *logrus.Entry, ghc githubClient, repo approvers.Repo, opts *plugins.Approve, pr *state) error {
 		gotState = pr
 		handled = true
 		return nil
