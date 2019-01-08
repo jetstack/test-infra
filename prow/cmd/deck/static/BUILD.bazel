@@ -29,7 +29,7 @@ ts_library(
 
 rollup_bundle(
     name = "prow_bundle",
-    entry_point = "prow/cmd/deck/static/prow/prow",
+    entry_point = "external/test_infra/prow/cmd/deck/static/prow/prow",
     deps = [
         ":prow",
         "@npm//moment",
@@ -46,7 +46,7 @@ ts_library(
 
 rollup_bundle(
     name = "plugin_help_bundle",
-    entry_point = "prow/cmd/deck/static/plugin-help/plugin-help",
+    entry_point = "external/test_infra/prow/cmd/deck/static/plugin-help/plugin-help",
     deps = [
         ":plugin_help",
         "@npm//dialog-polyfill",
@@ -63,7 +63,7 @@ ts_library(
 
 rollup_bundle(
     name = "pr_bundle",
-    entry_point = "prow/cmd/deck/static/pr/pr",
+    entry_point = "external/test_infra/prow/cmd/deck/static/pr/pr",
     deps = [
         ":pr",
         "@npm//dialog-polyfill",
@@ -81,7 +81,7 @@ ts_library(
 
 rollup_bundle(
     name = "tide_bundle",
-    entry_point = "prow/cmd/deck/static/tide/tide",
+    entry_point = "external/test_infra/prow/cmd/deck/static/tide/tide",
     deps = [
         ":tide",
         "@npm//moment",
@@ -100,7 +100,7 @@ ts_library(
 
 rollup_bundle(
     name = "tide_history_bundle",
-    entry_point = "prow/cmd/deck/static/tide-history/tide-history",
+    entry_point = "external/test_infra/prow/cmd/deck/static/tide-history/tide-history",
     deps = [
         ":tide_history",
         "@npm//moment",
@@ -117,7 +117,7 @@ ts_library(
 
 rollup_bundle(
     name = "command_help_bundle",
-    entry_point = "prow/cmd/deck/static/command-help/command-help",
+    entry_point = "external/test_infra/prow/cmd/deck/static/command-help/command-help",
     deps = [
         ":command_help",
         "@npm//dialog-polyfill",
@@ -147,7 +147,7 @@ ts_library(
 
 rollup_bundle(
     name = "spyglass_bundle",
-    entry_point = "prow/cmd/deck/static/spyglass/spyglass",
+    entry_point = "external/test_infra/prow/cmd/deck/static/spyglass/spyglass",
     deps = [
         ":spyglass",
         ":spyglass_common",
@@ -156,7 +156,7 @@ rollup_bundle(
 
 rollup_bundle(
     name = "spyglass_lens_bundle",
-    entry_point = "prow/cmd/deck/static/spyglass/lens",
+    entry_point = "external/test_infra/prow/cmd/deck/static/spyglass/lens",
     deps = [
         ":spyglass_common",
         ":spyglass_lens",
