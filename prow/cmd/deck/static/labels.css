@@ -28,7 +28,22 @@
     color: #ffffff;
 }
 
+.areax00002fcontributorx00002dguide {
+    background-color: #0052cc;
+    color: #ffffff;
+}
+
 .areax00002fdeflake {
+    background-color: #0052cc;
+    color: #ffffff;
+}
+
+.areax00002fdeveloperx00002dguide {
+    background-color: #0052cc;
+    color: #ffffff;
+}
+
+.areax00002fdevstats {
     background-color: #0052cc;
     color: #ffffff;
 }
@@ -68,12 +83,22 @@
     color: #ffffff;
 }
 
+.areax00002fhyperkube {
+    background-color: #0052cc;
+    color: #ffffff;
+}
+
 .areax00002fkind {
     background-color: #0052cc;
     color: #ffffff;
 }
 
 .areax00002flabelx00005fsync {
+    background-color: #0052cc;
+    color: #ffffff;
+}
+
+.areax00002flicensing {
     background-color: #0052cc;
     color: #ffffff;
 }
@@ -223,6 +248,16 @@
     color: #ffffff;
 }
 
+.areax00002freleasex00002deng {
+    background-color: #0052cc;
+    color: #ffffff;
+}
+
+.areax00002freleasex00002dteam {
+    background-color: #0052cc;
+    color: #ffffff;
+}
+
 .cherryx00002dpickx00002dapproved {
     background-color: #fef2c0;
     color: #000000;
@@ -239,6 +274,11 @@
 }
 
 .committeex00002fconduct {
+    background-color: #c0ff4a;
+    color: #000000;
+}
+
+.committeex00002fproductx00002dsecurity {
     background-color: #c0ff4a;
     color: #000000;
 }
@@ -688,12 +728,22 @@
     color: #000000;
 }
 
+.wgx00002fcomponentx00002dstandard {
+    background-color: #d2b48c;
+    color: #000000;
+}
+
 .wgx00002fcontainerx00002didentity {
     background-color: #d2b48c;
     color: #000000;
 }
 
 .wgx00002fiotx00002dedge {
+    background-color: #d2b48c;
+    color: #000000;
+}
+
+.wgx00002fk8sx00002dinfra {
     background-color: #d2b48c;
     color: #000000;
 }
