@@ -137,10 +137,6 @@ yarn_install(
 
 http_archive(
     name = "build_bazel_rules_typescript",
-<<<<<<< HEAD
-=======
-    sha256 = "136ba6be39b4ff934cc0f41f043912305e98cb62254d9e6af467e247daafcd34",
->>>>>>> kubernetes/master
     strip_prefix = "rules_typescript-0.22.0",
     url = "https://github.com/bazelbuild/rules_typescript/archive/0.22.0.zip",
 )
