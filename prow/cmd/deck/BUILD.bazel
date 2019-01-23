@@ -20,6 +20,9 @@ container_image(
         ":templates",
         "//prow/cmd/deck/static",
     ],
+    symlinks = {
+        "/lenses": "/test_infra/prow/spyglass/lenses",
+    },
 )
 
 prow_image(
@@ -69,6 +72,7 @@ go_test(
         "//prow/tide/history:go_default_library",
         "//vendor/github.com/sirupsen/logrus:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/equality:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/diff:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/sets:go_default_library",
         "//vendor/sigs.k8s.io/yaml:go_default_library",
     ],
@@ -99,6 +103,7 @@ go_library(
         "//prow/pjutil:go_default_library",
         "//prow/pluginhelp:go_default_library",
         "//prow/pod-utils/downwardapi:go_default_library",
+        "//prow/pod-utils/gcs:go_default_library",
         "//prow/prstatus:go_default_library",
         "//prow/spyglass:go_default_library",
         "//prow/spyglass/lenses:go_default_library",

@@ -4,11 +4,11 @@ periodics:
   name: ci-kubernetes-e2e-aws-eks-1-11-correctness
   labels:
     preset-service-account: "true"
-    preset-kubernetes-e2e-aws-eks-common: "true"
+    preset-aws-credential-aws-oss-testing: "true"
     preset-kubernetes-e2e-aws-eks-1-11: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:latest-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20190122-6eca4133a-master
       imagePullPolicy: Always
       args:
       - --timeout=200
@@ -21,7 +21,7 @@ periodics:
       - --gce-ssh=
       - --extract=ci/latest-1.11
       - --ginkgo-parallel=30
-      - --test_args=--ginkgo.skip=\[Slow\]|\[Serial\]|\[Disruptive\]|\[Flaky\]|\[Feature:.+\] --minStartupPods=8
+      - --test_args=--ginkgo.flakeAttempts=2 --ginkgo.skip=\[Slow\]|\[Serial\]|\[Disruptive\]|\[Flaky\]|\[Feature:.+\] --minStartupPods=8
       - --timeout=180m
 
 # Kubernetes conformance e2e tests against EKS 1.11 build.
@@ -29,11 +29,11 @@ periodics:
   name: ci-kubernetes-e2e-aws-eks-1-11-conformance
   labels:
     preset-service-account: "true"
-    preset-kubernetes-e2e-aws-eks-common: "true"
+    preset-aws-credential-aws-oss-testing: "true"
     preset-kubernetes-e2e-aws-eks-1-11: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:latest-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20190122-6eca4133a-master
       imagePullPolicy: Always
       args:
       - --timeout=200
@@ -46,7 +46,7 @@ periodics:
       - --gce-ssh=
       - --extract=ci/latest-1.11
       - --ginkgo-parallel=30
-      - --test_args=--ginkgo.focus=\[Conformance\] --ginkgo.skip=\[Slow\]|\[Serial\]|\[Disruptive\]|\[Flaky\]|\[Feature:.+\] --minStartupPods=8
+      - --test_args=--ginkgo.flakeAttempts=2 --ginkgo.focus=\[Conformance\] --ginkgo.skip=\[Slow\]|\[Serial\]|\[Disruptive\]|\[Flaky\]|\[Feature:.+\] --minStartupPods=8
       - --timeout=180m
 
 # Kubernetes performance e2e tests against EKS 1.11 build.
@@ -54,11 +54,11 @@ periodics:
   name: ci-kubernetes-e2e-aws-eks-1-11-scalability
   labels:
     preset-service-account: "true"
-    preset-kubernetes-e2e-aws-eks-common: "true"
+    preset-aws-credential-aws-oss-testing: "true"
     preset-kubernetes-e2e-aws-eks-1-11: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:latest-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20190122-6eca4133a-master
       imagePullPolicy: Always
       args:
       - --timeout=200
@@ -71,4 +71,54 @@ periodics:
       - --gce-ssh=
       - --extract=ci/latest
       - --test_args=--ginkgo.focus=\[Feature:Performance\] --minStartupPods=8
+      - --timeout=180m
+
+# Kubernetes e2e correctness tests against EKS 1.10 build.
+- interval: 3h
+  name: ci-kubernetes-e2e-aws-eks-1-10-correctness
+  labels:
+    preset-service-account: "true"
+    preset-aws-credential-aws-oss-testing: "true"
+    preset-kubernetes-e2e-aws-eks-1-10: "true"
+  spec:
+    containers:
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20190122-6eca4133a-master
+      imagePullPolicy: Always
+      args:
+      - --timeout=200
+      - --bare
+      - --scenario=kubernetes_e2e
+      - --
+      - --check-version-skew=false
+      - --deployment=eks
+      - --provider=eks
+      - --gce-ssh=
+      - --extract=ci/latest-1.10
+      - --ginkgo-parallel=30
+      - --test_args=--ginkgo.flakeAttempts=2 --ginkgo.skip=\[Slow\]|\[Serial\]|\[Disruptive\]|\[Flaky\]|\[Feature:.+\] --minStartupPods=8
+      - --timeout=180m
+
+# Kubernetes conformance e2e tests against EKS 1.10 build.
+- interval: 3h
+  name: ci-kubernetes-e2e-aws-eks-1-10-conformance
+  labels:
+    preset-service-account: "true"
+    preset-aws-credential-aws-oss-testing: "true"
+    preset-kubernetes-e2e-aws-eks-1-10: "true"
+  spec:
+    containers:
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20190122-6eca4133a-master
+      imagePullPolicy: Always
+      args:
+      - --timeout=200
+      - --bare
+      - --scenario=kubernetes_e2e
+      - --
+      - --check-version-skew=false
+      - --deployment=eks
+      - --provider=eks
+      - --gce-ssh=
+      - --extract=ci/latest-1.10
+      - --ginkgo-parallel=30
+      - --test_args=--ginkgo.flakeAttempts=2 --ginkgo.focus=\[Conformance\] --ginkgo.skip=\[Slow\]|\[Serial\]|\[Disruptive\]|\[Flaky\]|\[Feature:.+\] --minStartupPods=8
       - --timeout=180m

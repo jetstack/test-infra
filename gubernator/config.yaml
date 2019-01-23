@@ -1,16 +1,21 @@
 ---
 default_org: jetstack
 default_repo: dummy
-external_services:
-  jetstack:
-    gcs_bucket: jetstack-logs/
-    gcs_pull_prefix: jetstack-logs/pr-logs/pull
-    prow_url: prow.build-infra.jetstack.net
+default_external_services:
+  gcs_bucket: jetstack-logs/
+  gcs_pull_prefix: jetstack-logs/pr-logs/pull
+  prow_url: prow.build-infra.jetstack.net
+external_services: {}
 jobs:
   # periodic and postsubmit jobs live here
   jetstack-logs/logs/: []
   # symlinks for builds live here
   jetstack-logs/pr-logs/directory/:
+  - pull-cert-manager-bazel
+  - pull-cert-manager-chart
+  - pull-cert-manager-deps
+  - pull-cert-manager-e2e-v1-11
+  - pull-cert-manager-e2e-v1-12
   - navigator-quick-verify
   - navigator-e2e-v1-7
   - navigator-e2e-v1-8
