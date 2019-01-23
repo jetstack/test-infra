@@ -20,6 +20,9 @@ container_image(
         ":templates",
         "//prow/cmd/deck/static",
     ],
+    symlinks = {
+        "/lenses": "/test_infra/prow/spyglass/lenses",
+    },
 )
 
 prow_image(
