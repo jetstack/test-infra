@@ -5,6 +5,7 @@ default_external_services:
   gcs_bucket: jetstack-logs/
   gcs_pull_prefix: jetstack-logs/pr-logs/pull
   prow_url: prow.build-infra.jetstack.net
+  spyglass: true
 external_services: {}
 jobs:
   # periodic and postsubmit jobs live here
