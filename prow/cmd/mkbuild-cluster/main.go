@@ -26,9 +26,10 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
-	"sigs.k8s.io/yaml"
+	coreapi "k8s.io/api/core/v1"
 
 	"k8s.io/test-infra/prow/kube"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -260,7 +261,7 @@ func do(o options) error {
 	if err != nil {
 		return fmt.Errorf("read stdin: %v", err)
 	}
-	var s kube.Secret
+	var s coreapi.Secret
 	if err := yaml.Unmarshal(b, &s); err != nil {
 		return fmt.Errorf("unmarshal stdin: %v", err)
 	}

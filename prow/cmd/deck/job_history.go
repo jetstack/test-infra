@@ -43,8 +43,7 @@ const (
 
 	// ** Job history assumes the GCS layout specified here:
 	// https://github.com/kubernetes/test-infra/tree/master/gubernator#gcs-bucket-layout
-	logsPrefix     = "logs"
-	symLinkPrefix  = "pr-logs/directory"
+	logsPrefix     = gcs.NonPRLogs
 	spyglassPrefix = "/view/gcs"
 	emptyID        = int64(-1) // indicates no build id was specified
 )
@@ -308,8 +307,8 @@ func getBuildData(bucket storageBucket, dir string) (buildData, error) {
 	if finished.Revision != "" {
 		b.commitHash = finished.Revision
 	}
-	if finished.Timestamp != 0 {
-		b.Duration = time.Unix(finished.Timestamp, 0).Sub(b.Started)
+	if finished.Timestamp != nil {
+		b.Duration = time.Unix(*finished.Timestamp, 0).Sub(b.Started)
 	}
 	if finished.Result != "" {
 		b.Result = finished.Result

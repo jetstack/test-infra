@@ -247,29 +247,28 @@ func (c Configuration) Labels() []Label {
 // TODO(spiffxp): needs to validate labels duped across repos are identical
 // Ensures the config does not duplicate label names between default and repo
 func (c Configuration) validate(orgs string) error {
-	if len(orgs) == 0 {
-		return nil
-	}
-
-	// Generate list of orgs
-	sortedOrgs := strings.Split(orgs, ",")
-	sort.Strings(sortedOrgs)
 	// Check default labels
 	seen, err := validate(c.Default.Labels, "default", make(map[string]string))
 	if err != nil {
 		return fmt.Errorf("invalid config: %v", err)
 	}
+
+	// Generate list of orgs
+	sortedOrgs := strings.Split(orgs, ",")
+	sort.Strings(sortedOrgs)
 	// Check other repos labels
 	for repo, repoconfig := range c.Repos {
 		// Will complain if a label is both in default and repo
 		if _, err := validate(repoconfig.Labels, repo, seen); err != nil {
 			return fmt.Errorf("invalid config: %v", err)
 		}
-		// Warn if repo isn't under orgs
-		data := strings.Split(repo, "/")
-		if len(data) == 2 {
-			if !stringInSortedSlice(data[0], sortedOrgs) {
-				logrus.WithField("orgs", orgs).WithField("org", data[0]).WithField("repo", repo).Warn("Repo isn't inside orgs")
+		// If orgs have been specified, warn if repo isn't under orgs
+		if len(orgs) != 0 {
+			data := strings.Split(repo, "/")
+			if len(data) == 2 {
+				if !stringInSortedSlice(data[0], sortedOrgs) {
+					logrus.WithField("orgs", orgs).WithField("org", data[0]).WithField("repo", repo).Warn("Repo isn't inside orgs")
+				}
 			}
 		}
 	}
@@ -694,7 +693,13 @@ func main() {
 
 	switch {
 	case *action == "docs":
-		writeDocsAndCSS(*docsTemplate, *docsOutput, *cssTemplate, *cssOutput, *config)
+		if err := writeDocs(*docsTemplate, *docsOutput, *config); err != nil {
+			logrus.WithError(err).Fatalf("failed to write docs using docs-template %s to docs-output %s", *docsTemplate, *docsOutput)
+		}
+	case *action == "css":
+		if err := writeCSS(*cssTemplate, *cssOutput, *config); err != nil {
+			logrus.WithError(err).Fatalf("failed to write css file using css-template %s to css-output %s", *cssTemplate, *cssOutput)
+		}
 	case *action == "sync":
 		githubClient, err := newClient(*token, *tokens, *tokenBurst, !*confirm, endpoint.Strings()...)
 		if err != nil {
@@ -771,15 +776,6 @@ func parseCommaDelimitedList(list string) (map[string][]string, error) {
 
 type labelData struct {
 	Description, Link, Labels interface{}
-}
-
-func writeDocsAndCSS(docTmpl, docOut, cssTmpl, cssOut string, config Configuration) {
-	if err := writeDocs(docTmpl, docOut, config); err != nil {
-		logrus.WithError(err).Fatalf("failed to write docs using docs-template %s to docs-output %s", docTmpl, docOut)
-	}
-	if err := writeCSS(cssTmpl, cssOut, config); err != nil {
-		logrus.WithError(err).Fatalf("failed to write css file using css-template %s to css-output %s", cssTmpl, cssOut)
-	}
 }
 
 func writeDocs(template string, output string, config Configuration) error {

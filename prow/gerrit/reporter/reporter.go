@@ -23,7 +23,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/labels"
 
-	"k8s.io/test-infra/prow/apis/prowjobs/v1"
+	v1 "k8s.io/test-infra/prow/apis/prowjobs/v1"
 	pjlister "k8s.io/test-infra/prow/client/listers/prowjobs/v1"
 	"k8s.io/test-infra/prow/gerrit/client"
 	"k8s.io/test-infra/prow/kube"
@@ -63,6 +63,12 @@ func (c *Client) ShouldReport(pj *v1.ProwJob) bool {
 	if pj.Status.State == v1.TriggeredState || pj.Status.State == v1.PendingState {
 		// not done yet
 		logrus.WithField("prowjob", pj.ObjectMeta.Name).Info("PJ not finished")
+		return false
+	}
+
+	if pj.Status.State == v1.AbortedState {
+		// aborted (new patchset)
+		logrus.WithField("prowjob", pj.ObjectMeta.Name).Info("PJ aborted")
 		return false
 	}
 
@@ -117,7 +123,7 @@ func (c *Client) Report(pj *v1.ProwJob) error {
 	}
 
 	// generate an aggregated report:
-	total := len(pjsOnRevision)
+	total := 0
 	success := 0
 	message := ""
 
@@ -127,6 +133,11 @@ func (c *Client) Report(pj *v1.ProwJob) error {
 			return nil
 		}
 
+		if pjOnRevision.Status.State == v1.AbortedState {
+			continue
+		}
+
+		total++
 		if pjOnRevision.Status.State == v1.SuccessState {
 			success++
 		}

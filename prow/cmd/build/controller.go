@@ -22,11 +22,14 @@ import (
 	"strings"
 	"time"
 
+	coreapi "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	prowjobv1 "k8s.io/test-infra/prow/apis/prowjobs/v1"
 	prowjobset "k8s.io/test-infra/prow/client/clientset/versioned"
 	prowjobscheme "k8s.io/test-infra/prow/client/clientset/versioned/scheme"
 	prowjobinfov1 "k8s.io/test-infra/prow/client/informers/externalversions/prowjobs/v1"
 	prowjoblisters "k8s.io/test-infra/prow/client/listers/prowjobs/v1"
+	"k8s.io/test-infra/prow/config"
 	"k8s.io/test-infra/prow/kube"
 	"k8s.io/test-infra/prow/pjutil"
 	"k8s.io/test-infra/prow/pod-utils/clone"
@@ -37,9 +40,7 @@ import (
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -57,10 +58,10 @@ const (
 )
 
 type controller struct {
-	pjNamespace string
-	pjc         prowjobset.Interface
-	builds      map[string]buildConfig
-	totURL      string
+	config config.Getter
+	pjc    prowjobset.Interface
+	builds map[string]buildConfig
+	totURL string
 
 	pjLister   prowjoblisters.ProwJobLister
 	pjInformer cache.SharedIndexInformer
@@ -74,12 +75,16 @@ type controller struct {
 	wait         string
 }
 
+func (c controller) pjNamespace() string {
+	return c.config().ProwJobNamespace
+}
+
 // hasSynced returns true when every prowjob and build informer has synced.
 func (c *controller) hasSynced() bool {
 	if !c.pjInformer.HasSynced() {
 		if c.wait != "prowjobs" {
 			c.wait = "prowjobs"
-			ns := c.pjNamespace
+			ns := c.pjNamespace()
 			if ns == "" {
 				ns = "controller's"
 			}
@@ -109,24 +114,24 @@ func (c *controller) hasSynced() bool {
 	return true // Everyone is synced
 }
 
-func newController(kc kubernetes.Interface, pjc prowjobset.Interface, pji prowjobinfov1.ProwJobInformer, buildConfigs map[string]buildConfig, totURL, pjNamespace string, rl workqueue.RateLimitingInterface) *controller {
+func newController(kc kubernetes.Interface, pjc prowjobset.Interface, pji prowjobinfov1.ProwJobInformer, buildConfigs map[string]buildConfig, totURL string, prowConfig config.Getter, rl workqueue.RateLimitingInterface) *controller {
 	// Log to events
 	prowjobscheme.AddToScheme(scheme.Scheme)
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(logrus.Infof)
 	eventBroadcaster.StartRecordingToSink(&corev1.EventSinkImpl{Interface: kc.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: controllerName})
+	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, coreapi.EventSource{Component: controllerName})
 
 	// Create struct
 	c := &controller{
-		pjc:         pjc,
-		builds:      buildConfigs,
-		pjLister:    pji.Lister(),
-		pjInformer:  pji.Informer(),
-		workqueue:   rl,
-		recorder:    recorder,
-		totURL:      totURL,
-		pjNamespace: pjNamespace,
+		builds:     buildConfigs,
+		config:     prowConfig,
+		pjc:        pjc,
+		pjInformer: pji.Informer(),
+		pjLister:   pji.Lister(),
+		recorder:   recorder,
+		totURL:     totURL,
+		workqueue:  rl,
 	}
 
 	logrus.Info("Setting up event handlers")
@@ -253,16 +258,16 @@ type reconciler interface {
 	createBuild(context, namespace string, b *buildv1alpha1.Build) (*buildv1alpha1.Build, error)
 	updateProwJob(pj *prowjobv1.ProwJob) (*prowjobv1.ProwJob, error)
 	now() metav1.Time
-	buildID(prowjobv1.ProwJob) (string, error)
+	buildID(prowjobv1.ProwJob) (string, string, error)
 }
 
 func (c *controller) getProwJob(name string) (*prowjobv1.ProwJob, error) {
-	return c.pjLister.ProwJobs(c.pjNamespace).Get(name)
+	return c.pjLister.ProwJobs(c.pjNamespace()).Get(name)
 }
 
 func (c *controller) updateProwJob(pj *prowjobv1.ProwJob) (*prowjobv1.ProwJob, error) {
 	logrus.Debugf("updateProwJob(%s)", pj.Name)
-	return c.pjc.ProwV1().ProwJobs(c.pjNamespace).Update(pj)
+	return c.pjc.ProwV1().ProwJobs(c.pjNamespace()).Update(pj)
 }
 
 func (c *controller) getBuild(context, namespace, name string) (*buildv1alpha1.Build, error) {
@@ -292,8 +297,14 @@ func (c *controller) now() metav1.Time {
 	return metav1.Now()
 }
 
-func (c *controller) buildID(pj prowjobv1.ProwJob) (string, error) {
-	return pjutil.GetBuildID(pj.Spec.Job, c.totURL)
+func (c *controller) buildID(pj prowjobv1.ProwJob) (string, string, error) {
+	id, err := pjutil.GetBuildID(pj.Spec.Job, c.totURL)
+	if err != nil {
+		return "", "", err
+	}
+	pj.Status.BuildID = id
+	url := pjutil.JobURL(c.config().Plank, pj, logrus.NewEntry(logrus.StandardLogger()))
+	return id, url, nil
 }
 
 var (
@@ -341,6 +352,7 @@ func reconcile(c reconciler, key string) error {
 		haveBuild = true
 	}
 
+	var newBuildID bool
 	// Should we create or delete this build?
 	switch {
 	case !wantBuild:
@@ -365,11 +377,14 @@ func reconcile(c reconciler, key string) error {
 	case wantBuild && pj.Spec.BuildSpec == nil:
 		return errors.New("nil BuildSpec")
 	case wantBuild && !haveBuild:
-		id, err := c.buildID(*pj)
+		id, url, err := c.buildID(*pj)
 		if err != nil {
 			return fmt.Errorf("failed to get build id: %v", err)
 		}
-		if b, err = makeBuild(*pj, id); err != nil {
+		pj.Status.BuildID = id
+		pj.Status.URL = url
+		newBuildID = true
+		if b, err = makeBuild(*pj); err != nil {
 			return fmt.Errorf("make build: %v", err)
 		}
 		logrus.Infof("Create builds/%s", key)
@@ -382,7 +397,7 @@ func reconcile(c reconciler, key string) error {
 	haveState := pj.Status.State
 	haveMsg := pj.Status.Description
 	wantState, wantMsg := prowJobStatus(b.Status)
-	if haveState != wantState || haveMsg != wantMsg {
+	if newBuildID || haveState != wantState || haveMsg != wantMsg {
 		npj := pj.DeepCopy()
 		if npj.Status.StartTime.IsZero() {
 			npj.Status.StartTime = c.now()
@@ -444,13 +459,13 @@ func prowJobStatus(bs buildv1alpha1.BuildStatus) (prowjobv1.ProwJobState, string
 	}
 	cond := *pcond
 	switch {
-	case cond.Status == v1.ConditionTrue:
+	case cond.Status == coreapi.ConditionTrue:
 		return prowjobv1.SuccessState, description(cond, descSucceeded)
-	case cond.Status == v1.ConditionFalse:
+	case cond.Status == coreapi.ConditionFalse:
 		return prowjobv1.FailureState, description(cond, descFailed)
 	case started.IsZero():
 		return prowjobv1.TriggeredState, description(cond, descInitializing)
-	case cond.Status == v1.ConditionUnknown, finished.IsZero():
+	case cond.Status == coreapi.ConditionUnknown, finished.IsZero():
 		return prowjobv1.PendingState, description(cond, descRunning)
 	}
 	logrus.Warnf("Unknown condition %#v", cond)
@@ -466,11 +481,11 @@ const (
 )
 
 var (
-	codeMount = v1.VolumeMount{
+	codeMount = coreapi.VolumeMount{
 		Name:      workspaceMountName,
 		MountPath: "/code-mount", // should be irrelevant
 	}
-	logMount = v1.VolumeMount{
+	logMount = coreapi.VolumeMount{
 		Name:      homeMountName,
 		MountPath: "/var/prow-build-log", // should be irrelevant
 	}
@@ -506,7 +521,7 @@ func defaultArguments(t *buildv1alpha1.TemplateInstantiationSpec, rawEnv map[str
 }
 
 // defaultEnv adds the map of environment variables to the container, except keys already defined.
-func defaultEnv(c *v1.Container, rawEnv map[string]string) {
+func defaultEnv(c *coreapi.Container, rawEnv map[string]string) {
 	keys := sets.String{}
 	for _, arg := range c.Env {
 		keys.Insert(arg.Name)
@@ -515,7 +530,7 @@ func defaultEnv(c *v1.Container, rawEnv map[string]string) {
 		if keys.Has(k) {
 			continue
 		}
-		c.Env = append(c.Env, v1.EnvVar{Name: k, Value: rawEnv[k]})
+		c.Env = append(c.Env, coreapi.EnvVar{Name: k, Value: rawEnv[k]})
 	}
 }
 
@@ -574,23 +589,23 @@ func injectSource(b *buildv1alpha1.Build, pj prowjobv1.ProwJob) (bool, error) {
 	return true, nil
 }
 
-func tools() (v1.Volume, v1.VolumeMount) {
+func tools() (coreapi.Volume, coreapi.VolumeMount) {
 	const toolsName = "entrypoint-tools"
-	toolsVolume := v1.Volume{
+	toolsVolume := coreapi.Volume{
 		Name: toolsName,
-		VolumeSource: v1.VolumeSource{
-			EmptyDir: &v1.EmptyDirVolumeSource{},
+		VolumeSource: coreapi.VolumeSource{
+			EmptyDir: &coreapi.EmptyDirVolumeSource{},
 		},
 	}
 
-	toolsMount := v1.VolumeMount{
+	toolsMount := coreapi.VolumeMount{
 		Name:      toolsName,
 		MountPath: "/entrypoint-tools",
 	}
 	return toolsVolume, toolsMount
 }
 
-func decorateSteps(steps []v1.Container, dc prowjobv1.DecorationConfig, toolsMount v1.VolumeMount) ([]wrapper.Options, error) {
+func decorateSteps(steps []coreapi.Container, dc prowjobv1.DecorationConfig, toolsMount coreapi.VolumeMount) ([]wrapper.Options, error) {
 	const alwaysPass = true
 	var entries []wrapper.Options
 	for i := range steps {
@@ -612,15 +627,15 @@ func decorateSteps(steps []v1.Container, dc prowjobv1.DecorationConfig, toolsMou
 }
 
 // injectedSteps returns initial containers, a final container and an additional volume.
-func injectedSteps(encodedJobSpec string, dc prowjobv1.DecorationConfig, injectedSource bool, toolsMount v1.VolumeMount, entries []wrapper.Options) ([]v1.Container, *v1.Container, *v1.Volume, error) {
+func injectedSteps(encodedJobSpec string, dc prowjobv1.DecorationConfig, injectedSource bool, toolsMount coreapi.VolumeMount, entries []wrapper.Options) ([]coreapi.Container, *coreapi.Container, *coreapi.Volume, error) {
 	gcsVol, gcsMount, gcsOptions := decorate.GCSOptions(dc)
 
-	sidecar, err := decorate.Sidecar(dc.UtilityImages.Sidecar, gcsOptions, gcsMount, logMount, encodedJobSpec, entries...)
+	sidecar, err := decorate.Sidecar(dc.UtilityImages.Sidecar, gcsOptions, gcsMount, logMount, encodedJobSpec, decorate.RequirePassingEntries, entries...)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("inject sidecar: %v", err)
 	}
 
-	var cloneLogMount *kube.VolumeMount
+	var cloneLogMount *coreapi.VolumeMount
 	if injectedSource {
 		cloneLogMount = &logMount
 	}
@@ -631,7 +646,7 @@ func injectedSteps(encodedJobSpec string, dc prowjobv1.DecorationConfig, injecte
 
 	placer := decorate.PlaceEntrypoint(dc.UtilityImages.Entrypoint, toolsMount)
 
-	return []v1.Container{placer, *initUpload}, sidecar, &gcsVol, nil
+	return []coreapi.Container{placer, *initUpload}, sidecar, &gcsVol, nil
 }
 
 func decorateBuild(spec *buildv1alpha1.BuildSpec, encodedJobSpec string, dc prowjobv1.DecorationConfig, injectedSource bool) error {
@@ -658,9 +673,13 @@ func decorateBuild(spec *buildv1alpha1.BuildSpec, encodedJobSpec string, dc prow
 }
 
 // makeBuild creates a build from the prowjob, using the prowjob's buildspec.
-func makeBuild(pj prowjobv1.ProwJob, buildID string) (*buildv1alpha1.Build, error) {
+func makeBuild(pj prowjobv1.ProwJob) (*buildv1alpha1.Build, error) {
 	if pj.Spec.BuildSpec == nil {
-		return nil, errors.New("nil BuildSpec")
+		return nil, errors.New("nil BuildSpec in spec")
+	}
+	buildID := pj.Status.BuildID
+	if buildID == "" {
+		return nil, errors.New("empty BuildID in status")
 	}
 	b := buildv1alpha1.Build{
 		ObjectMeta: buildMeta(pj),

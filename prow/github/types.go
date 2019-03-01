@@ -146,10 +146,11 @@ type CombinedStatus struct {
 
 // User is a GitHub user account.
 type User struct {
-	Login string `json:"login"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-	ID    int    `json:"id"`
+	Login   string `json:"login"`
+	Name    string `json:"name"`
+	Email   string `json:"email"`
+	ID      int    `json:"id"`
+	HTMLURL string `json:"html_url"`
 }
 
 // NormLogin normalizes GitHub login strings
@@ -214,6 +215,7 @@ type PullRequest struct {
 	RequestedReviewers []User            `json:"requested_reviewers"`
 	Assignees          []User            `json:"assignees"`
 	State              string            `json:"state"`
+	Draft              bool              `json:"draft"`
 	Merged             bool              `json:"merged"`
 	CreatedAt          time.Time         `json:"created_at,omitempty"`
 	UpdatedAt          time.Time         `json:"updated_at,omitempty"`

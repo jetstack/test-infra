@@ -6,7 +6,7 @@ declare const lenses: string[];
 
 // Loads views for this job
 function loadLenses(): void {
-  for (let lens of lenses) {
+  for (const lens of lenses) {
     const frame = document.querySelector<HTMLIFrameElement>(`#iframe-${lens}`)!;
     frame.src = urlForLensRequest(lens, 'iframe');
   }
@@ -14,8 +14,8 @@ function loadLenses(): void {
 
 function queryForLens(lens: string): string {
   const data = {
-    src,
     artifacts: lensArtifacts[lens],
+    src,
   };
   return `req=${encodeURIComponent(JSON.stringify(data))}`;
 }
@@ -47,9 +47,16 @@ window.addEventListener('message', async (e) => {
     switch (message.type) {
       case "contentUpdated":
         frame.style.height = `${message.height}px`;
-        frame.style.visibility = 'visible';
-        document.querySelector<HTMLElement>(`#${lens}-loading`)!.style.display = 'none';
-        respond('');
+        if (frame.style.visibility !== 'visible') {
+          frame.style.visibility = 'visible';
+          if (frame.dataset.hideTitle) {
+            frame.parentElement!.parentElement!.classList.add('hidden-title');
+          }
+          document.querySelector<HTMLElement>(`#${lens}-loading`)!.style.display = 'none';
+          respond('madeVisible');
+        } else {
+          respond('');
+        }
         break;
       case "request": {
         const req = await fetch(urlForLensRequest(lens, 'callback'),

@@ -20,6 +20,7 @@ import (
 	"errors"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -697,6 +698,85 @@ func TestHandleGenericComment(t *testing.T) {
 			sort.Strings(tc.expectedRequested)
 			if !reflect.DeepEqual(fghc.requested, tc.expectedRequested) {
 				t.Fatalf("expected the requested reviewers to be %q, but got %q.", tc.expectedRequested, fghc.requested)
+			}
+		})
+	}
+}
+
+func TestHandleGenericCommentEvent(t *testing.T) {
+	pc := plugins.Agent{
+		PluginConfig: &plugins.Configuration{},
+	}
+	ce := github.GenericCommentEvent{}
+	handleGenericCommentEvent(pc, ce)
+}
+
+func TestHandlePullRequestEvent(t *testing.T) {
+	pc := plugins.Agent{
+		PluginConfig: &plugins.Configuration{},
+	}
+	pre := github.PullRequestEvent{}
+	handlePullRequestEvent(pc, pre)
+}
+
+func TestHelpProvider(t *testing.T) {
+	cases := []struct {
+		name               string
+		config             *plugins.Configuration
+		enabledRepos       []string
+		err                bool
+		configInfoIncludes []string
+	}{
+		{
+			name:               "Empty config",
+			config:             &plugins.Configuration{},
+			enabledRepos:       []string{"org1", "org2/repo"},
+			configInfoIncludes: []string{configString(0)},
+		},
+		{
+			name:               "Overlapping org and org/repo",
+			config:             &plugins.Configuration{},
+			enabledRepos:       []string{"org2", "org2/repo"},
+			configInfoIncludes: []string{configString(0)},
+		},
+		{
+			name:               "Invalid enabledRepos",
+			config:             &plugins.Configuration{},
+			enabledRepos:       []string{"org1", "org2/repo/extra"},
+			err:                true,
+			configInfoIncludes: []string{configString(0)},
+		},
+		{
+			name: "ReviewerCount specified",
+			config: &plugins.Configuration{
+				Blunderbuss: plugins.Blunderbuss{
+					ReviewerCount: &[]int{2}[0],
+				},
+			},
+			enabledRepos:       []string{"org1", "org2/repo"},
+			configInfoIncludes: []string{configString(2)},
+		},
+		{
+			name: "FileWeightCount specified",
+			config: &plugins.Configuration{
+				Blunderbuss: plugins.Blunderbuss{
+					FileWeightCount: &[]int{2}[0],
+				},
+			},
+			enabledRepos:       []string{"org1", "org2/repo"},
+			configInfoIncludes: []string{configString(2)},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			pluginHelp, err := helpProvider(c.config, c.enabledRepos)
+			if err != nil && !c.err {
+				t.Fatalf("helpProvider error: %v", err)
+			}
+			for _, msg := range c.configInfoIncludes {
+				if !strings.Contains(pluginHelp.Config[""], msg) {
+					t.Fatalf("helpProvider.Config error mismatch: didn't get %v, but wanted it", msg)
+				}
 			}
 		})
 	}

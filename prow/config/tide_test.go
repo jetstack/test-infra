@@ -21,6 +21,7 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/test-infra/prow/github"
 	"k8s.io/test-infra/prow/labels"
@@ -278,7 +279,7 @@ func TestParseTideContextPolicyOptions(t *testing.T) {
 	for _, tc := range testCases {
 		policy := parseTideContextPolicyOptions(org, repo, branch, tc.config)
 		if !reflect.DeepEqual(policy, tc.expected) {
-			t.Errorf("%s - expected %v got %v", tc.name, tc.expected, policy)
+			t.Errorf("%s - did not get expected policy: %s", tc.name, diff.ObjectReflectDiff(tc.expected, policy))
 		}
 	}
 }
@@ -310,11 +311,15 @@ func TestConfigGetTideContextPolicy(t *testing.T) {
 					Presubmits: map[string][]Presubmit{
 						"org/repo": {
 							Presubmit{
-								Context:   "pr1",
+								Reporter: Reporter{
+									Context: "pr1",
+								},
 								AlwaysRun: true,
 							},
 							Presubmit{
-								Context:   "po1",
+								Reporter: Reporter{
+									Context: "po1",
+								},
 								AlwaysRun: true,
 								Optional:  true,
 							},
@@ -323,8 +328,9 @@ func TestConfigGetTideContextPolicy(t *testing.T) {
 				},
 			},
 			expected: TideContextPolicy{
-				RequiredContexts: []string{"pr1"},
-				OptionalContexts: []string{"po1"},
+				RequiredContexts:          []string{"pr1"},
+				RequiredIfPresentContexts: []string{},
+				OptionalContexts:          []string{"po1"},
 			},
 		},
 		{
@@ -342,8 +348,9 @@ func TestConfigGetTideContextPolicy(t *testing.T) {
 				},
 			},
 			expected: TideContextPolicy{
-				RequiredContexts: []string{},
-				OptionalContexts: []string{},
+				RequiredContexts:          []string{},
+				RequiredIfPresentContexts: []string{},
+				OptionalContexts:          []string{},
 			},
 		},
 		{
@@ -360,8 +367,9 @@ func TestConfigGetTideContextPolicy(t *testing.T) {
 				},
 			},
 			expected: TideContextPolicy{
-				RequiredContexts: []string{},
-				OptionalContexts: []string{},
+				RequiredContexts:          []string{},
+				RequiredIfPresentContexts: []string{},
+				OptionalContexts:          []string{},
 			},
 		},
 		{
@@ -387,8 +395,9 @@ func TestConfigGetTideContextPolicy(t *testing.T) {
 				},
 			},
 			expected: TideContextPolicy{
-				RequiredContexts: []string{},
-				OptionalContexts: []string{},
+				RequiredContexts:          []string{},
+				RequiredIfPresentContexts: []string{},
+				OptionalContexts:          []string{},
 			},
 		},
 		{
@@ -398,18 +407,20 @@ func TestConfigGetTideContextPolicy(t *testing.T) {
 					Tide: Tide{
 						ContextOptions: TideContextPolicyOptions{
 							TideContextPolicy: TideContextPolicy{
-								RequiredContexts:    []string{"r1"},
-								OptionalContexts:    []string{"o1"},
-								SkipUnknownContexts: &yes,
+								RequiredContexts:          []string{"r1"},
+								RequiredIfPresentContexts: []string{},
+								OptionalContexts:          []string{"o1"},
+								SkipUnknownContexts:       &yes,
 							},
 						},
 					},
 				},
 			},
 			expected: TideContextPolicy{
-				RequiredContexts:    []string{"r1"},
-				OptionalContexts:    []string{"o1"},
-				SkipUnknownContexts: &yes,
+				RequiredContexts:          []string{"r1"},
+				RequiredIfPresentContexts: []string{},
+				OptionalContexts:          []string{"o1"},
+				SkipUnknownContexts:       &yes,
 			},
 		},
 	}
@@ -417,7 +428,7 @@ func TestConfigGetTideContextPolicy(t *testing.T) {
 	for _, tc := range testCases {
 		p, err := tc.config.GetTideContextPolicy(org, repo, branch)
 		if !reflect.DeepEqual(p, &tc.expected) {
-			t.Errorf("%s - expected contexts %v got %v", tc.name, &tc.expected, p)
+			t.Errorf("%s - did not get expected policy: %s", tc.name, diff.ObjectReflectDiff(&tc.expected, p))
 		}
 		if err != nil {
 			if err.Error() != tc.error {

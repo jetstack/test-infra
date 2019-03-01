@@ -563,9 +563,15 @@ def main(args):
 
     if args.kubeadm:
         version = kubeadm_version(args.kubeadm, shared_build_gcs_path)
+        # try to look for k-a repo
+        kubeadm_path = os.path.join(workspace, 'k8s.io', 'kubernetes-anywhere')
+        go_path = os.environ.get('GOPATH', '')
+        if go_path:
+            kubeadm_in_gopath = os.path.join(go_path, 'src', 'k8s.io', 'kubernetes-anywhere')
+            if os.path.exists(kubeadm_in_gopath):
+                kubeadm_path = kubeadm_in_gopath
         runner_args.extend([
-            '--kubernetes-anywhere-path=%s' % os.path.join(workspace, 'k8s.io',
-                'kubernetes-anywhere'),
+            '--kubernetes-anywhere-path=%s' % kubeadm_path,
             '--kubernetes-anywhere-phase2-provider=kubeadm',
             '--kubernetes-anywhere-cluster=%s' % cluster,
             '--kubernetes-anywhere-kubeadm-version=%s' % version,
@@ -586,7 +592,7 @@ def main(args):
         set_up_kops_aws(mode.workspace, args, mode, cluster, runner_args)
     elif args.deployment == 'kops' and args.provider == 'gce':
         set_up_kops_gce(mode.workspace, args, mode, cluster, runner_args)
-    elif args.gce_ssh:
+    elif args.deployment != 'kind' and args.gce_ssh:
         mode.add_gce_ssh(args.gce_ssh, args.gce_pub)
 
     # TODO(fejta): delete this?
