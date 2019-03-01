@@ -4,7 +4,7 @@ Configuration of Tide is located under the [prow/config.yaml](/prow/config.yaml)
 
 This document will describe the fields of the `tide` configuration and how to populate them, but you can also check out the [GoDocs](https://godoc.org/github.com/kubernetes/test-infra/prow/config#Tide) for the most up to date configuration specification.
 
-To deploy Tide for your organization or repository, please see [how to get started with prow](/prow/getting_started.md).
+To deploy Tide for your organization or repository, please see [how to get started with prow](/prow/getting_started_deploy.md).
 
 ### General configuration
 
@@ -137,4 +137,4 @@ All commits in PRs from `github.com/kubeflow/community` repository are squashed 
 
 Before a PR is merged, Tide ensures that all jobs configured as required in the `presubmits` part of the `config.yaml` file are passing against the latest base branch commit, rerunning the jobs if necessary. **No job is required to be configured** in which case it's enough if a PR meets all GitHub search criteria.
 
-Semantic of individual fields of the `presubmits` is described in [prow/README.md#how-to-add-new-jobs](/prow/README.md#how-to-add-new-jobs).
+Semantic of individual fields of the `presubmits` is described in [prow/jobs.md](prow/jobs.md).

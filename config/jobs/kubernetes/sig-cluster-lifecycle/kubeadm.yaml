@@ -1,4 +1,3 @@
-# kubeadm release and master tests
 periodics:
 - name: ci-kubernetes-e2e-kubeadm-gce-1-11
   interval: 12h
@@ -7,7 +6,7 @@ periodics:
     preset-k8s-ssh: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20190122-6eca4133a-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20190220-615bdbe2e-master
       args:
       - --repo=k8s.io/kubernetes=release-1.11
       - --repo=k8s.io/kubernetes-anywhere=kubeadm-e2e
@@ -18,11 +17,11 @@ periodics:
       - --cluster=
       - --deployment=kubernetes-anywhere
       - --extract=ci/latest-bazel-1.11
-      - --gcp-zone=us-central1-f
+      - --gcp-zone=us-west1-b
       - --kubeadm=ci
       - --kubernetes-anywhere-kubelet-ci-version=latest-bazel-1.11
       - --kubernetes-anywhere-kubernetes-version=ci/latest-1.11
-      - --provider=kubernetes-anywhere
+      - --provider=skeleton
       - --test_args=--ginkgo.focus=\[Conformance\]|\[Feature:BootstrapTokens\]|\[Feature:NodeAuthorizer\] --minStartupPods=8
       - --timeout=300m
 
@@ -34,7 +33,7 @@ periodics:
     preset-bazel-scratch-dir: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20190122-6eca4133a-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20190220-615bdbe2e-master
       args:
       - --repo=k8s.io/kubernetes=release-1.12
       - --repo=k8s.io/kubernetes-anywhere=kubeadm-e2e
@@ -45,11 +44,11 @@ periodics:
       - --cluster=
       - --deployment=kubernetes-anywhere
       - --extract=ci/latest-bazel-1.12
-      - --gcp-zone=us-central1-f
+      - --gcp-zone=us-west1-b
       - --kubeadm=ci
       - --kubernetes-anywhere-kubelet-ci-version=latest-bazel-1.12
       - --kubernetes-anywhere-kubernetes-version=ci/latest-1.12
-      - --provider=kubernetes-anywhere
+      - --provider=skeleton
       - --test_args=--ginkgo.focus=\[Conformance\]|\[Feature:BootstrapTokens\]|\[Feature:NodeAuthorizer\] --minStartupPods=8
       - --timeout=300m
 
@@ -61,7 +60,7 @@ periodics:
     preset-bazel-scratch-dir: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20190122-6eca4133a-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20190220-615bdbe2e-master
       args:
       - --repo=k8s.io/kubernetes=release-1.13
       - --repo=k8s.io/kubernetes-anywhere=kubeadm-e2e
@@ -72,13 +71,40 @@ periodics:
       - --cluster=
       - --deployment=kubernetes-anywhere
       - --extract=ci/latest-bazel-1.13
-      - --gcp-zone=us-central1-f
+      - --gcp-zone=us-west1-b
       - --kubeadm=ci
       - --kubernetes-anywhere-kubelet-ci-version=latest-bazel-1.13
       - --kubernetes-anywhere-kubernetes-version=ci/latest-1.13
-      - --provider=kubernetes-anywhere
+      - --provider=skeleton
       - --test_args=--ginkgo.focus=\[Conformance\]|\[Feature:BootstrapTokens\]|\[Feature:NodeAuthorizer\] --minStartupPods=8
       - --timeout=300m
+
+- name: ci-kubernetes-e2e-kubeadm-gce-1-14
+  interval: 12h
+  labels:
+    preset-service-account: "true"
+    preset-k8s-ssh: "true"
+    preset-bazel-scratch-dir: "true"
+  spec:
+    containers:
+      - image: gcr.io/k8s-testimages/kubekins-e2e:v20190220-615bdbe2e-1.14
+        args:
+          - --repo=k8s.io/kubernetes=release-1.14
+          - --repo=k8s.io/kubernetes-anywhere=kubeadm-e2e
+          - --timeout=320
+          - --upload=gs://kubernetes-jenkins/logs
+          - --scenario=kubernetes_e2e
+          - --
+          - --cluster=
+          - --deployment=kubernetes-anywhere
+          - --extract=ci/latest-bazel-1.14
+          - --gcp-zone=us-west1-b
+          - --kubeadm=ci
+          - --kubernetes-anywhere-kubelet-ci-version=latest-bazel-1.14
+          - --kubernetes-anywhere-kubernetes-version=ci/latest-1.14
+          - --provider=skeleton
+          - --test_args=--ginkgo.focus=\[Conformance\]|\[Feature:BootstrapTokens\]|\[Feature:NodeAuthorizer\] --minStartupPods=8 --num-nodes=4
+          - --timeout=300m
 
 - name: ci-kubernetes-e2e-kubeadm-gce-master
   interval: 2h
@@ -87,7 +113,8 @@ periodics:
     preset-k8s-ssh: "true"
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20190122-6eca4133a-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:latest-master
+      imagePullPolicy: Always
       args:
       - --repo=k8s.io/kubernetes=master
       - --repo=k8s.io/kubernetes-anywhere=kubeadm-e2e
@@ -99,11 +126,11 @@ periodics:
       - --cluster=
       - --deployment=kubernetes-anywhere
       - --extract=ci/latest-bazel
-      - --gcp-zone=us-central1-f
+      - --gcp-zone=us-west1-b
       - --kubeadm=ci
       - --kubernetes-anywhere-kubelet-ci-version=latest-bazel
       - --kubernetes-anywhere-kubernetes-version=ci-cross/latest
-      - --provider=kubernetes-anywhere
-      - --test_args=--ginkgo.focus=\[Conformance\]|\[Feature:BootstrapTokens\]|\[Feature:NodeAuthorizer\] --minStartupPods=8
+      - --provider=skeleton
+      - --test_args=--ginkgo.focus=\[Conformance\]|\[Feature:BootstrapTokens\]|\[Feature:NodeAuthorizer\] --minStartupPods=8 --num-nodes=4
       - --timeout=300m
 

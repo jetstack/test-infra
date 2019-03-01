@@ -56,6 +56,11 @@ ensure-config "$@"
 echo "Bumping prow to latest..." >&2
 ./bump.sh --latest
 
+# Also try to regenerate security-job configs which uses explicit podutils image config
+# TODO(krzyzacy): workaround before we resolves https://github.com/kubernetes/test-infra/issues/9783
+echo "Running test-infra/hack/update-config.sh ..." >&2
+../hack/update-config.sh
+
 # Convert image: gcr.io/k8s-prow/plank:v20181122-abcd to v20181122-abcd
 extract-version() {
   local v=$(grep plank:v "$@")
@@ -70,19 +75,19 @@ extract-commit() {
 
 old_version=$(git show HEAD:prow/cluster/plank_deployment.yaml | extract-version)
 version=$(cat cluster/plank_deployment.yaml | extract-version)
-comparison=$(extract-commit "$old_version")...$(extract-commit "$version")
-echo -e "Pushing $(color-version $version) to ${user}:autobump..." >&2
+comparison=$(extract-commit "${old_version}")...$(extract-commit "${version}")
+echo -e "Pushing $(color-version ${version}) to ${user}:autobump..." >&2
 
-title="Bump prow from $old_version to $version"
+title="Bump prow from ${old_version} to ${version}"
 git add -A
-git commit -m "$title"
+git commit -m "${title}"
 git push -f "git@github.com:${user}/test-infra.git" HEAD:autobump
 
 echo "Creating PR to merge ${user}:autobump into master..." >&2
 bazel run //robots/pr-creator -- \
-    --github-token-path="$token" \
+    --github-token-path="${token}" \
     --org=kubernetes --repo=test-infra --branch=master \
-    --title="$title" --match-title="Bump prow to" \
-    --body="Included changes: https://github.com/kubernetes/test-infra/compare/$comparison" \
+    --title="${title}" --match-title="Bump prow to" \
+    --body="Included changes: https://github.com/kubernetes/test-infra/compare/${comparison}" \
     --source="${user}":autobump \
     --confirm

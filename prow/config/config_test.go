@@ -26,9 +26,10 @@ import (
 	"time"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	prowapi "k8s.io/test-infra/prow/apis/prowjobs/v1"
 	prowjobv1 "k8s.io/test-infra/prow/apis/prowjobs/v1"
 	"k8s.io/test-infra/prow/config/secret"
 	"k8s.io/test-infra/prow/kube"
@@ -58,7 +59,7 @@ func TestDefaultJobBase(t *testing.T) {
 				j.Agent = ""
 			},
 			expected: func(j *JobBase) {
-				j.Agent = string(kube.KubernetesAgent)
+				j.Agent = string(prowapi.KubernetesAgent)
 			},
 		},
 		{
@@ -275,7 +276,7 @@ func TestDecorationRawYaml(t *testing.T) {
 		name        string
 		expectError bool
 		rawConfig   string
-		expected    *kube.DecorationConfig
+		expected    *prowapi.DecorationConfig
 	}{
 		{
 			name:        "no default",
@@ -321,18 +322,18 @@ periodics:
       args:
       - "test"
       - "./..."`,
-			expected: &kube.DecorationConfig{
+			expected: &prowapi.DecorationConfig{
 				Timeout:     2 * time.Hour,
 				GracePeriod: 15 * time.Second,
-				UtilityImages: &kube.UtilityImages{
+				UtilityImages: &prowapi.UtilityImages{
 					CloneRefs:  "clonerefs:default",
 					InitUpload: "initupload:default",
 					Entrypoint: "entrypoint:default",
 					Sidecar:    "sidecar:default",
 				},
-				GCSConfiguration: &kube.GCSConfiguration{
+				GCSConfiguration: &prowapi.GCSConfiguration{
 					Bucket:       "default-bucket",
-					PathStrategy: kube.PathStrategyLegacy,
+					PathStrategy: prowapi.PathStrategyLegacy,
 					DefaultOrg:   "kubernetes",
 					DefaultRepo:  "kubernetes",
 				},
@@ -380,18 +381,18 @@ periodics:
       args:
       - "test"
       - "./..."`,
-			expected: &kube.DecorationConfig{
+			expected: &prowapi.DecorationConfig{
 				Timeout:     1 * time.Nanosecond,
 				GracePeriod: 1 * time.Nanosecond,
-				UtilityImages: &kube.UtilityImages{
+				UtilityImages: &prowapi.UtilityImages{
 					CloneRefs:  "clonerefs:explicit",
 					InitUpload: "initupload:explicit",
 					Entrypoint: "entrypoint:explicit",
 					Sidecar:    "sidecar:explicit",
 				},
-				GCSConfiguration: &kube.GCSConfiguration{
+				GCSConfiguration: &prowapi.GCSConfiguration{
 					Bucket:       "explicit-bucket",
-					PathStrategy: kube.PathStrategyExplicit,
+					PathStrategy: prowapi.PathStrategyExplicit,
 					DefaultOrg:   "kubernetes",
 					DefaultRepo:  "kubernetes",
 				},
@@ -443,7 +444,7 @@ func TestValidateAgent(t *testing.T) {
 		Namespace: &ns,
 		Spec:      &v1.PodSpec{},
 		UtilityConfig: UtilityConfig{
-			DecorationConfig: &kube.DecorationConfig{},
+			DecorationConfig: &prowapi.DecorationConfig{},
 		},
 	}
 
@@ -580,12 +581,12 @@ func TestValidateAgent(t *testing.T) {
 }
 
 func TestValidatePodSpec(t *testing.T) {
-	periodEnv := sets.NewString(downwardapi.EnvForType(kube.PeriodicJob)...)
-	postEnv := sets.NewString(downwardapi.EnvForType(kube.PostsubmitJob)...)
-	preEnv := sets.NewString(downwardapi.EnvForType(kube.PresubmitJob)...)
+	periodEnv := sets.NewString(downwardapi.EnvForType(prowapi.PeriodicJob)...)
+	postEnv := sets.NewString(downwardapi.EnvForType(prowapi.PostsubmitJob)...)
+	preEnv := sets.NewString(downwardapi.EnvForType(prowapi.PresubmitJob)...)
 	cases := []struct {
 		name    string
-		jobType kube.ProwJobType
+		jobType prowapi.ProwJobType
 		spec    func(s *v1.PodSpec)
 		noSpec  bool
 		pass    bool
@@ -621,7 +622,7 @@ func TestValidatePodSpec(t *testing.T) {
 		},
 		{
 			name:    "reject reserved presubmit env",
-			jobType: kube.PresubmitJob,
+			jobType: prowapi.PresubmitJob,
 			spec: func(s *v1.PodSpec) {
 				// find a presubmit value
 				for n := range preEnv.Difference(postEnv).Difference(periodEnv) {
@@ -635,7 +636,7 @@ func TestValidatePodSpec(t *testing.T) {
 		},
 		{
 			name:    "reject reserved postsubmit env",
-			jobType: kube.PostsubmitJob,
+			jobType: prowapi.PostsubmitJob,
 			spec: func(s *v1.PodSpec) {
 				// find a postsubmit value
 				for n := range postEnv.Difference(periodEnv) {
@@ -649,7 +650,7 @@ func TestValidatePodSpec(t *testing.T) {
 		},
 		{
 			name:    "reject reserved periodic env",
-			jobType: kube.PeriodicJob,
+			jobType: prowapi.PeriodicJob,
 			spec: func(s *v1.PodSpec) {
 				// find a postsubmit value
 				for n := range periodEnv {
@@ -713,7 +714,7 @@ func TestValidatePodSpec(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			jt := kube.PresubmitJob
+			jt := prowapi.PresubmitJob
 			if tc.jobType != "" {
 				jt = tc.jobType
 			}
@@ -734,7 +735,7 @@ func TestValidatePodSpec(t *testing.T) {
 }
 
 func TestValidateDecoration(t *testing.T) {
-	defCfg := kube.DecorationConfig{
+	defCfg := prowapi.DecorationConfig{
 		UtilityImages: &prowjobv1.UtilityImages{
 			CloneRefs:  "clone-me",
 			InitUpload: "upload-me",
@@ -751,7 +752,7 @@ func TestValidateDecoration(t *testing.T) {
 	cases := []struct {
 		name      string
 		container v1.Container
-		config    *kube.DecorationConfig
+		config    *prowapi.DecorationConfig
 		pass      bool
 	}{
 		{
@@ -776,7 +777,7 @@ func TestValidateDecoration(t *testing.T) {
 		},
 		{
 			name:   "reject invalid decoration config",
-			config: &kube.DecorationConfig{},
+			config: &prowapi.DecorationConfig{},
 			container: v1.Container{
 				Command: []string{"hello", "world"},
 			},
@@ -1779,4 +1780,244 @@ func TestSecretAgentLoading(t *testing.T) {
 		t.Fatal(errors)
 	}
 
+}
+
+func TestValidGithubReportType(t *testing.T) {
+	var testCases = []struct {
+		name        string
+		prowConfig  string
+		expectError bool
+		expectTypes []prowapi.ProwJobType
+	}{
+		{
+			name:        "empty config should default to report for presubmit only",
+			prowConfig:  ``,
+			expectTypes: []prowapi.ProwJobType{prowapi.PresubmitJob},
+		},
+		{
+			name: "reject unsupported job types",
+			prowConfig: `
+github_reporter:
+  job_types_to_report:
+  - presubmit
+  - batch
+`,
+			expectError: true,
+		},
+		{
+			name: "accept valid job types",
+			prowConfig: `
+github_reporter:
+  job_types_to_report:
+  - presubmit
+  - postsubmit
+`,
+			expectTypes: []prowapi.ProwJobType{prowapi.PresubmitJob, prowapi.PostsubmitJob},
+		},
+	}
+
+	for _, tc := range testCases {
+		// save the config
+		prowConfigDir, err := ioutil.TempDir("", "prowConfig")
+		if err != nil {
+			t.Fatalf("fail to make tempdir: %v", err)
+		}
+		defer os.RemoveAll(prowConfigDir)
+
+		prowConfig := filepath.Join(prowConfigDir, "config.yaml")
+		if err := ioutil.WriteFile(prowConfig, []byte(tc.prowConfig), 0666); err != nil {
+			t.Fatalf("fail to write prow config: %v", err)
+		}
+
+		cfg, err := Load(prowConfig, "")
+		if tc.expectError && err == nil {
+			t.Errorf("tc %s: Expect error, but got nil", tc.name)
+		} else if !tc.expectError && err != nil {
+			t.Errorf("tc %s: Expect no error, but got error %v", tc.name, err)
+		}
+
+		if err == nil {
+			if !reflect.DeepEqual(cfg.GithubReporter.JobTypesToReport, tc.expectTypes) {
+				t.Errorf("tc %s: expected %#v\n!=\nactual %#v", tc.name, tc.expectTypes, cfg.GithubReporter.JobTypesToReport)
+			}
+		}
+	}
+}
+
+func TestPlankJobURLPrefix(t *testing.T) {
+	testCases := []struct {
+		name                 string
+		plank                Plank
+		refs                 *prowapi.Refs
+		expectedJobURLPrefix string
+	}{
+		{
+			name:                 "Nil refs returns default JobURLPrefix",
+			plank:                Plank{JobURLPrefixConfig: map[string]string{"*": "https://my-prow"}},
+			expectedJobURLPrefix: "https://my-prow",
+		},
+		{
+			name: "No matching refs returns default JobURLPrefx",
+			plank: Plank{
+				JobURLPrefixConfig: map[string]string{
+					"*":      "https://my-prow",
+					"my-org": "https://my-alternate-prow",
+				},
+			},
+			refs:                 &prowapi.Refs{Org: "my-default-org", Repo: "my-default-repo"},
+			expectedJobURLPrefix: "https://my-prow",
+		},
+		{
+			name: "Matching repo returns JobURLPrefix from repo",
+			plank: Plank{
+				JobURLPrefixConfig: map[string]string{
+					"*":                        "https://my-prow",
+					"my-alternate-org":         "https://my-third-prow",
+					"my-alternate-org/my-repo": "https://my-alternate-prow",
+				},
+			},
+			refs:                 &prowapi.Refs{Org: "my-alternate-org", Repo: "my-repo"},
+			expectedJobURLPrefix: "https://my-alternate-prow",
+		},
+		{
+			name: "Matching org and not matching repo returns JobURLPrefix from org",
+			plank: Plank{
+				JobURLPrefixConfig: map[string]string{
+					"*":                        "https://my-prow",
+					"my-alternate-org":         "https://my-third-prow",
+					"my-alternate-org/my-repo": "https://my-alternate-prow",
+				},
+			},
+			refs:                 &prowapi.Refs{Org: "my-alternate-org", Repo: "my-second-repo"},
+			expectedJobURLPrefix: "https://my-third-prow",
+		},
+		{
+			name: "Matching org without url returns default JobURLPrefix",
+			plank: Plank{
+				JobURLPrefixConfig: map[string]string{
+					"*":                        "https://my-prow",
+					"my-alternate-org/my-repo": "https://my-alternate-prow",
+				},
+			},
+			refs:                 &prowapi.Refs{Org: "my-alternate-org", Repo: "my-second-repo"},
+			expectedJobURLPrefix: "https://my-prow",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if prefix := tc.plank.GetJobURLPrefix(tc.refs); prefix != tc.expectedJobURLPrefix {
+				t.Errorf("expected JobURLPrefix to be %q but was %q", tc.expectedJobURLPrefix, prefix)
+			}
+		})
+	}
+}
+
+func TestValidateComponentConfig(t *testing.T) {
+	testCases := []struct {
+		name        string
+		config      *Config
+		errExpected bool
+	}{
+		{
+			name: `JobURLPrefix and JobURLPrefixConfig["*"].URL set, err`,
+			config: &Config{ProwConfig: ProwConfig{Plank: Plank{
+				JobURLPrefix: "https://my-default-prow",
+				JobURLPrefixConfig: map[string]string{
+					"*": "https://my-alternate-prow",
+				},
+			}}},
+			errExpected: true,
+		},
+		{
+			name: `JobURLPrefix and JobURLPrefixConfig["*"].URL unset, no err`,
+			config: &Config{ProwConfig: ProwConfig{Plank: Plank{
+				JobURLPrefix: "https://my-default-prow",
+				JobURLPrefixConfig: map[string]string{
+					"my-other-org": "https://my-alternate-prow",
+				},
+			}}},
+			errExpected: false,
+		},
+		{
+			name: "Valid default URL, no err",
+			config: &Config{ProwConfig: ProwConfig{Plank: Plank{
+				JobURLPrefixConfig: map[string]string{"*": "https://my-prow"}}}},
+			errExpected: false,
+		},
+		{
+			name: "Invalid default URL, err",
+			config: &Config{ProwConfig: ProwConfig{Plank: Plank{
+				JobURLPrefixConfig: map[string]string{"*": "https:// my-prow"}}}},
+			errExpected: true,
+		},
+		{
+			name: "Org config, valid URLs, no err",
+			config: &Config{ProwConfig: ProwConfig{Plank: Plank{
+				JobURLPrefixConfig: map[string]string{
+					"*":      "https://my-prow",
+					"my-org": "https://my-alternate-prow",
+				},
+			}}},
+			errExpected: false,
+		},
+		{
+			name: "Org override, invalid default jobURLPrefix URL, err",
+			config: &Config{ProwConfig: ProwConfig{Plank: Plank{
+				JobURLPrefixConfig: map[string]string{
+					"*":      "https:// my-prow",
+					"my-org": "https://my-alternate-prow",
+				},
+			}}},
+			errExpected: true,
+		},
+		{
+			name: "Org override, invalid org URL, err",
+			config: &Config{ProwConfig: ProwConfig{Plank: Plank{
+				JobURLPrefixConfig: map[string]string{
+					"*":      "https://my-prow",
+					"my-org": "https:// my-alternate-prow",
+				},
+			}}},
+			errExpected: true,
+		},
+		{
+			name: "Org override, invalid URLs, err",
+			config: &Config{ProwConfig: ProwConfig{Plank: Plank{
+				JobURLPrefixConfig: map[string]string{
+					"*":      "https:// my-prow",
+					"my-org": "https:// my-alternate-prow",
+				},
+			}}},
+			errExpected: true,
+		},
+		{
+			name: "Repo override, valid URLs, no err",
+			config: &Config{ProwConfig: ProwConfig{Plank: Plank{
+				JobURLPrefixConfig: map[string]string{
+					"*":              "https://my-prow",
+					"my-org":         "https://my-alternate-prow",
+					"my-org/my-repo": "https://my-third-prow",
+				}}}},
+			errExpected: false,
+		},
+		{
+			name: "Repo override, invalid repo URL, err",
+			config: &Config{ProwConfig: ProwConfig{Plank: Plank{
+				JobURLPrefixConfig: map[string]string{
+					"*":              "https://my-prow",
+					"my-org":         "https://my-alternate-prow",
+					"my-org/my-repo": "https:// my-third-prow",
+				}}}},
+			errExpected: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if hasErr := tc.config.validateComponentConfig() != nil; hasErr != tc.errExpected {
+				t.Errorf("expected err: %t but was %t", tc.errExpected, hasErr)
+			}
+		})
+	}
 }

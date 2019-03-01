@@ -1,16 +1,16 @@
 plank:
-  job_url_template: '{{if .Spec.Refs}}{{if eq .Spec.Refs.Org "kubernetes-security"}}https://console.cloud.google.com/storage/browser/kubernetes-security-prow/{{else}}https://gubernator.k8s.io/build/kubernetes-jenkins/{{end}}{{else}}https://gubernator.k8s.io/build/kubernetes-jenkins/{{end}}{{if eq .Spec.Type "presubmit"}}pr-logs/pull{{else if eq .Spec.Type "batch"}}pr-logs/pull{{else}}logs{{end}}{{if .Spec.Refs}}{{if ne .Spec.Refs.Org ""}}{{if ne .Spec.Refs.Org "kubernetes"}}/{{if and (eq .Spec.Refs.Org "kubernetes-sigs") (ne .Spec.Refs.Repo "poseidon")}}sigs.k8s.io{{else}}{{.Spec.Refs.Org}}{{end}}_{{.Spec.Refs.Repo}}{{else if ne .Spec.Refs.Repo "kubernetes"}}/{{.Spec.Refs.Repo}}{{end}}{{end}}{{end}}{{if eq .Spec.Type "presubmit"}}/{{with index .Spec.Refs.Pulls 0}}{{.Number}}{{end}}{{else if eq .Spec.Type "batch"}}/batch{{end}}/{{.Spec.Job}}/{{.Status.BuildID}}/'
-  report_template: '[Full PR test history](https://gubernator.k8s.io/pr/{{if eq .Spec.Refs.Org "kubernetes"}}{{if eq .Spec.Refs.Repo "kubernetes"}}{{else}}{{.Spec.Refs.Repo}}/{{end}}{{else}}{{.Spec.Refs.Org}}_{{.Spec.Refs.Repo}}/{{end}}{{with index .Spec.Refs.Pulls 0}}{{.Number}}{{end}}). [Your PR dashboard](https://gubernator.k8s.io/pr/{{with index .Spec.Refs.Pulls 0}}{{.Author}}{{end}}). Please help us cut down on flakes by [linking to](https://git.k8s.io/community/contributors/devel/flaky-tests.md#filing-issues-for-flaky-tests) an [open issue](https://github.com/{{.Spec.Refs.Org}}/{{.Spec.Refs.Repo}}/issues?q=is:issue+is:open) when you hit one in your PR.'
-  job_url_prefix: https://gubernator.k8s.io/build/
+  job_url_template: '{{if .Spec.Refs}}{{if eq .Spec.Refs.Org "kubernetes-security"}}https://console.cloud.google.com/storage/browser/kubernetes-security-prow/{{else}}https://prow.k8s.io/view/gcs/kubernetes-jenkins/{{end}}{{else}}https://prow.k8s.io/view/gcs/kubernetes-jenkins/{{end}}{{if eq .Spec.Type "presubmit"}}pr-logs/pull{{else if eq .Spec.Type "batch"}}pr-logs/pull{{else}}logs{{end}}{{if .Spec.Refs}}{{if ne .Spec.Refs.Org ""}}{{if ne .Spec.Refs.Org "kubernetes"}}/{{if and (eq .Spec.Refs.Org "kubernetes-sigs") (ne .Spec.Refs.Repo "poseidon")}}sigs.k8s.io{{else}}{{.Spec.Refs.Org}}{{end}}_{{.Spec.Refs.Repo}}{{else if ne .Spec.Refs.Repo "kubernetes"}}/{{.Spec.Refs.Repo}}{{end}}{{end}}{{end}}{{if eq .Spec.Type "presubmit"}}/{{with index .Spec.Refs.Pulls 0}}{{.Number}}{{end}}{{else if eq .Spec.Type "batch"}}/batch{{end}}/{{.Spec.Job}}/{{.Status.BuildID}}/'
+  report_template: '[Full PR test history](https://prow.k8s.io/pr-history?org={{.Spec.Refs.Org}}&repo={{.Spec.Refs.Repo}}&pr={{with index .Spec.Refs.Pulls 0}}{{.Number}}{{end}}). [Your PR dashboard](https://gubernator.k8s.io/pr/{{with index .Spec.Refs.Pulls 0}}{{.Author}}{{end}}). Please help us cut down on flakes by [linking to](https://git.k8s.io/community/contributors/devel/flaky-tests.md#filing-issues-for-flaky-tests) an [open issue](https://github.com/{{.Spec.Refs.Org}}/{{.Spec.Refs.Repo}}/issues?q=is:issue+is:open) when you hit one in your PR.'
+  job_url_prefix: https://prow.k8s.io/view/gcs/
   pod_pending_timeout: 60m
   default_decoration_config:
     timeout: 7200000000000 # 2h
     grace_period: 15000000000 # 15s
     utility_images:
-      clonerefs: "gcr.io/k8s-prow/clonerefs:v20190122-e707848"
-      initupload: "gcr.io/k8s-prow/initupload:v20190122-e707848"
-      entrypoint: "gcr.io/k8s-prow/entrypoint:v20190122-e707848"
-      sidecar: "gcr.io/k8s-prow/sidecar:v20190122-e707848"
+      clonerefs: "gcr.io/k8s-prow/clonerefs:v20190228-49ac9d2"
+      initupload: "gcr.io/k8s-prow/initupload:v20190228-49ac9d2"
+      entrypoint: "gcr.io/k8s-prow/entrypoint:v20190228-49ac9d2"
+      sidecar: "gcr.io/k8s-prow/sidecar:v20190228-49ac9d2"
     gcs_configuration:
       bucket: "kubernetes-jenkins"
       path_strategy: "legacy"
@@ -26,6 +26,9 @@ sinker:
 deck:
   spyglass:
     size_limit: 500000000 # 500MB
+    gcs_browser_prefix: http://gcsweb.k8s.io/gcs/
+    testgrid_config: gs://k8s-testgrid/config
+    testgrid_root: https://testgrid.k8s.io/
     viewers:
       "started.json|finished.json":
       - "metadata"
@@ -33,6 +36,7 @@ deck:
       - "buildlog"
       "artifacts/junit.*\\.xml":
       - "junit"
+    announcement: "The old job viewer, Gubernator, has been deprecated in favour of this page, Spyglass.{{if .ArtifactPath}} For now, the old page is <a href='https://gubernator.k8s.io/build/{{.ArtifactPath}}'>still available</a>.{{end}} Please send feedback to sig-testing."
   tide_update_period: 1s
   hidden_repos:
   - kubernetes-security
@@ -108,7 +112,7 @@ branch-protection:
         dashboard:
           required_status_checks:
             contexts:
-            - continuous-integration/travis-ci
+            - continuous-integration/travis-ci/pr
           required_pull_request_reviews:
             required_approving_review_count: 1
         dns:
@@ -373,7 +377,7 @@ tide:
     - kubernetes/ingress-nginx
     - kubernetes/k8s.io
     - kubernetes/klog
-    - kubernetes/komposer
+    - kubernetes/kompose
     - kubernetes/kops
     - kubernetes/kube-deploy
     - kubernetes/kube-openapi
@@ -389,6 +393,7 @@ tide:
     - kubernetes/publishing-bot
     - kubernetes/release
     - kubernetes/repo-infra
+    - kubernetes/security
     - kubernetes/sig-release
     - kubernetes/steering
     - kubernetes/test-infra
@@ -450,6 +455,7 @@ tide:
     kubernetes-sigs/cluster-api-provider-openstack: squash
     kubernetes-sigs/cluster-api-provider-vsphere: squash
     kubernetes-sigs/kubespray: squash
+    kubernetes/cloud-provider-openstack: squash
     kubernetes/dashboard: squash
     kubernetes/kube-deploy: squash
     kubernetes/website: squash
@@ -469,6 +475,10 @@ tide:
 push_gateway:
   endpoint: pushgateway
 
+github_reporter: 
+  job_types_to_report:
+  - presubmit
+  - postsubmit
 
 presets:
 # credential presets
@@ -607,3 +617,21 @@ presets:
   volumeMounts:
   - name: docker-graph
     mountPath: /docker-graph
+# volume mounts for kind
+- labels:
+    preset-kind-volume-mounts: "true"
+  volumeMounts:
+    - mountPath: /lib/modules
+      name: modules
+      readOnly: true
+    - mountPath: /sys/fs/cgroup
+      name: cgroup
+  volumes:
+    - name: modules
+      hostPath:
+        path: /lib/modules
+        type: Directory
+    - name: cgroup
+      hostPath:
+        path: /sys/fs/cgroup
+        type: Directory

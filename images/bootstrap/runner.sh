@@ -20,15 +20,7 @@
 export BAZEL_REMOTE_CACHE_ENABLED=${BAZEL_REMOTE_CACHE_ENABLED:-false}
 if [[ "${BAZEL_REMOTE_CACHE_ENABLED}" == "true" ]]; then
     echo "Bazel remote cache is enabled, generating .bazelrcs ..."
-    # if we have a test-infra checkout (because bootstrap), use that since
-    # it is newer and this is probably k/k so we can push fixes faster this way
-    # otherwise run the one baked into the image
-    # TODO(bentheelder): someday only support the pod-utils
-    if [[ -d "./test-infra" ]]; then
-        ./test-infra/images/bootstrap/create_bazel_cache_rcs.sh
-    else
-        /usr/local/bin/create_bazel_cache_rcs.sh
-    fi
+    /usr/local/bin/create_bazel_cache_rcs.sh
 fi
 
 
@@ -93,7 +85,7 @@ fi
 set +o errexit
 
 # add $GOPATH/bin to $PATH
-export PATH=$GOPATH/bin:$PATH
+export PATH=${GOPATH}/bin:${PATH}
 # Authenticate gcloud, allow failures
 if [[ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]]; then
   gcloud auth activate-service-account --key-file="${GOOGLE_APPLICATION_CREDENTIALS}" || true
@@ -111,8 +103,10 @@ if [[ "${METADATA_BANDAID:-false}" == "true" ]]; then
 fi
 
 # actually start bootstrap and the job
+set -o xtrace
 "$@"
 EXIT_VALUE=$?
+set +o xtrace
 
 # cleanup after job
 if [[ "${DOCKER_IN_DOCKER_ENABLED}" == "true" ]]; then

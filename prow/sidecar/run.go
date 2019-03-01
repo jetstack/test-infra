@@ -32,7 +32,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"k8s.io/test-infra/prow/entrypoint"
-	"k8s.io/test-infra/prow/kube"
 	"k8s.io/test-infra/prow/pod-utils/downwardapi"
 	"k8s.io/test-infra/prow/pod-utils/gcs"
 	"k8s.io/test-infra/prow/pod-utils/wrapper"
@@ -42,25 +41,29 @@ func nameEntry(idx int, opt wrapper.Options) string {
 	return fmt.Sprintf("entry %d: %s", idx, strings.Join(opt.Args, " "))
 }
 
-func wait(ctx context.Context, entries []wrapper.Options) (bool, bool) {
+func wait(ctx context.Context, entries []wrapper.Options) (bool, bool, int) {
 	passed := true
-	aborted := false
+	var aborted bool
+	var failures int
 
 	for _, opt := range entries {
 		returnCode, err := wrapper.WaitForMarker(ctx, opt.MarkerFile)
 		passed = passed && err == nil && returnCode == 0
 		aborted = aborted || returnCode == entrypoint.AbortedErrorCode
+		if returnCode != 0 && returnCode != entrypoint.PreviousErrorCode {
+			failures++
+		}
 	}
-	return passed, aborted
+	return passed, aborted, failures
 }
 
 // Run will watch for the process being wrapped to exit
 // and then post the status of that process and any artifacts
 // to cloud storage.
-func (o Options) Run(ctx context.Context) error {
+func (o Options) Run(ctx context.Context) (int, error) {
 	spec, err := downwardapi.ResolveSpecFromEnv()
 	if err != nil {
-		return fmt.Errorf("could not resolve job spec: %v", err)
+		return 0, fmt.Errorf("could not resolve job spec: %v", err)
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -87,7 +90,7 @@ func (o Options) Run(ctx context.Context) error {
 		logrus.Warnf("Using deprecated wrapper_options instead of entries. Please update prow/pod-utils/decorate before June 2019")
 	}
 	entries := o.entries()
-	passed, aborted := wait(ctx, entries)
+	passed, aborted, failures := wait(ctx, entries)
 
 	cancel()
 	// If we are being asked to terminate by the kubelet but we have
@@ -99,7 +102,7 @@ func (o Options) Run(ctx context.Context) error {
 
 	buildLog := logReader(entries)
 	metadata := combineMetadata(entries)
-	return o.doUpload(spec, passed, aborted, metadata, buildLog)
+	return failures, o.doUpload(spec, passed, aborted, metadata, buildLog)
 }
 
 const errorKey = "sidecar-errors"
@@ -163,18 +166,6 @@ func combineMetadata(entries []wrapper.Options) map[string]interface{} {
 	return metadata
 }
 
-func getRevisionFromRef(refs *kube.Refs) string {
-	if len(refs.Pulls) > 0 {
-		return refs.Pulls[0].SHA
-	}
-
-	if refs.BaseSHA != "" {
-		return refs.BaseSHA
-	}
-
-	return refs.BaseRef
-}
-
 func (o Options) doUpload(spec *downwardapi.JobSpec, passed, aborted bool, metadata map[string]interface{}, logReader io.Reader) error {
 	uploadTargets := map[string]gcs.UploadFunc{
 		"build-log.txt": gcs.DataUpload(logReader),
@@ -190,18 +181,17 @@ func (o Options) doUpload(spec *downwardapi.JobSpec, passed, aborted bool, metad
 		result = "FAILURE"
 	}
 
+	now := time.Now().Unix()
 	finished := gcs.Finished{
-		Timestamp: time.Now().Unix(),
-		Passed:    passed,
+		Timestamp: &now,
+		Passed:    &passed,
 		Result:    result,
 		Metadata:  metadata,
+		// TODO(fejta): JobVersion,
 	}
 
-	if spec.Refs != nil {
-		finished.Revision = getRevisionFromRef(spec.Refs)
-	} else if len(spec.ExtraRefs) > 0 {
-		finished.Revision = getRevisionFromRef(&spec.ExtraRefs[0])
-	}
+	// TODO(fejta): move to initupload and Started.Repos, RepoVersion
+	finished.Revision = downwardapi.GetRevisionFromSpec(spec)
 
 	finishedData, err := json.Marshal(&finished)
 	if err != nil {
