@@ -178,6 +178,8 @@ func (t *throttler) Do(req *http.Request) (*http.Response, error) {
 
 func (t *throttler) Query(ctx context.Context, q interface{}, vars map[string]interface{}) error {
 	t.Wait()
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	return t.graph.Query(ctx, q, vars)
 }
 
@@ -2345,7 +2347,7 @@ func (c *Client) ListCollaborators(org, repo string) ([]User, error) {
 
 // CreateFork creates a fork for the authenticated user. Forking a repository
 // happens asynchronously. Therefore, we may have to wait a short period before
-// accessing the git objects. If this takes longer than 5 minutes, Github
+// accessing the git objects. If this takes longer than 5 minutes, GitHub
 // recommends contacting their support.
 //
 // See https://developer.github.com/v3/repos/forks/#create-a-fork

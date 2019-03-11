@@ -248,10 +248,6 @@ test_groups:
   gcs_prefix: kubernetes-jenkins/logs/ci-ingress-gce-e2e-release-1-4
 - name: ci-ingress-gce-e2e-scale
   gcs_prefix: kubernetes-jenkins/logs/ci-ingress-gce-e2e-scale
-- name: ci-ingress-gce-upgrade-e2e
-  gcs_prefix: kubernetes-jenkins/logs/ci-ingress-gce-upgrade-e2e
-- name: ci-ingress-gce-downgrade-e2e
-  gcs_prefix: kubernetes-jenkins/logs/ci-ingress-gce-downgrade-e2e
 - name: ci-cluster-api-build
   gcs_prefix: kubernetes-jenkins/logs/ci-cluster-api-build
 - name: ci-cluster-api-test
@@ -523,6 +519,9 @@ test_groups:
 - name: ci-kubernetes-e2e-gci-gke-ingress
   gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-e2e-gci-gke-ingress
   alert_stale_results_hours: 24
+- name: ci-kubernetes-e2e-gci-gke-network-policy
+  gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-e2e-gci-gke-network-policy
+  alert_stale_results_hours: 24
 - name: ci-kubernetes-e2e-gke-large-performance
   gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-e2e-gke-large-performance
   days_of_results: 60
@@ -783,6 +782,8 @@ test_groups:
   gcs_prefix: kubernetes-jenkins/logs/post-test-infra-build-smoke
 - name: ci-test-infra-bazel
   gcs_prefix: kubernetes-jenkins/logs/ci-test-infra-bazel
+- name: ci-test-infra-resultstore-upload
+  gcs_prefix: kubernetes-jenkins/logs/ci-test-infra-resultstore-upload
 # Ubuntu node e2e tests (contact: @kubernetes/ubuntu-image on github)
 - name: ci-kubernetes-e2enode-ubuntu1-k8sbeta-gkespec
   gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-e2enode-ubuntu1-k8sbeta-gkespec
@@ -2462,9 +2463,6 @@ test_groups:
   gcs_prefix: kubernetes-jenkins/pr-logs/directory/pull-org-verify-all
   num_columns_recent: 30
 #presubmits
-- name: pull-cluster-api-bazel-verify
-  gcs_prefix: kubernetes-jenkins/pr-logs/directory/pull-cluster-api-bazel-verify
-  num_columns_recent: 20
 - name: pull-cluster-api-build
   gcs_prefix: kubernetes-jenkins/pr-logs/directory/pull-cluster-api-build
   num_columns_recent: 20
@@ -2679,8 +2677,14 @@ test_groups:
   gcs_prefix: kubernetes-jenkins/logs/post-test-infra-deploy-prow
 - name: post-test-infra-push-prow
   gcs_prefix: kubernetes-jenkins/logs/post-test-infra-push-prow
+- name: ci-test-infra-autoupdate-minor
+  gcs_prefix: kubernetes-jenkins/logs/ci-test-infra-autoupdate-minor
+- name: ci-test-infra-autoupdate-patch
+  gcs_prefix: kubernetes-jenkins/logs/ci-test-infra-autoupdate-patch
 - name: ci-test-infra-autobump-prow
   gcs_prefix: kubernetes-jenkins/logs/ci-test-infra-autobump-prow
+- name: ci-test-infra-update-slack-oncall
+  gcs_prefix: kubernetes-jenkins/logs/ci-test-infra-update-slack-oncall
 - name: pull-test-infra-bazel
   gcs_prefix: kubernetes-jenkins/pr-logs/directory/pull-test-infra-bazel
   num_columns_recent: 20
@@ -2723,6 +2727,9 @@ test_groups:
   num_columns_recent: 20
 - name: pull-test-infra-verify-codegen
   gcs_prefix: kubernetes-jenkins/pr-logs/directory/pull-test-infra-verify-codegen
+  num_columns_recent: 20
+- name: pull-test-infra-verify-github-spelling
+  gcs_prefix: kubernetes-jenkins/pr-logs/directory/pull-test-infra-verify-github-spelling
   num_columns_recent: 20
 - name: pull-cloud-provider-vsphere-test
   gcs_prefix: kubernetes-jenkins/pr-logs/directory/pull-cloud-provider-vsphere-test
@@ -3176,6 +3183,12 @@ test_groups:
   num_columns_recent: 3
 - name: ci-kind-build
   gcs_prefix: kubernetes-jenkins/logs/ci-kind-build
+- name: ci-kubernetes-conformance-image-test
+  gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-conformance-image-test
+  num_columns_recent: 3
+- name: ci-kubernetes-conformance-image-1-14-test
+  gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-conformance-image-1-14-test
+  num_columns_recent: 3
 
 # cloud-provider-openstack e2e conformance tests
 # name format: PR trigger ci-presubmit-${zuul-job-name}
@@ -3184,16 +3197,24 @@ test_groups:
   gcs_prefix: k8s-conformance-openstack/pr-logs/ci-cloud-provider-openstack-acceptance-test-e2e-conformance
   alert_stale_results_hours: 24
   num_failures_to_alert: 1
-- name: ci-presubmit-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.11
-  gcs_prefix: k8s-conformance-openstack/pr-logs/ci-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.11
+- name: ci-presubmit-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.12
+  gcs_prefix: k8s-conformance-openstack/pr-logs/ci-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.12
+  alert_stale_results_hours: 24
+  num_failures_to_alert: 1
+- name: ci-presubmit-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.13
+  gcs_prefix: k8s-conformance-openstack/pr-logs/ci-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.13
   alert_stale_results_hours: 24
   num_failures_to_alert: 1
 - name: ci-periodic-cloud-provider-openstack-acceptance-test-e2e-conformance
   gcs_prefix: k8s-conformance-openstack/periodic-logs/ci-cloud-provider-openstack-acceptance-test-e2e-conformance
   alert_stale_results_hours: 24
   num_failures_to_alert: 1
-- name: ci-periodic-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.11
-  gcs_prefix: k8s-conformance-openstack/periodic-logs/ci-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.11
+- name: ci-periodic-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.12
+  gcs_prefix: k8s-conformance-openstack/periodic-logs/ci-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.12
+  alert_stale_results_hours: 24
+  num_failures_to_alert: 1
+- name: ci-periodic-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.13
+  gcs_prefix: k8s-conformance-openstack/periodic-logs/ci-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.13
   alert_stale_results_hours: 24
   num_failures_to_alert: 1
 
@@ -3289,9 +3310,15 @@ test_groups:
   gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-e2e-aks-engine-azure-master-windows
 - name: ci-kubernetes-e2e-aks-engine-azure-master-staging-windows
   gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-e2e-aks-engine-azure-master-staging-windows
+- name: ci-kubernetes-e2e-aks-engine-azure-1-14-windows
+  gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-e2e-aks-engine-azure-1-14-windows
 # Cloud-provider-azure e2e tests
 - name: ci-cloud-provider-azure-master
   gcs_prefix: kubernetes-jenkins/logs/ci-cloud-provider-azure-master
+  
+# Flannel CNI on Windows test groups
+- name: ci-kubernetes-e2e-flannel-l2bridge-master-windows
+  gcs_prefix: k8s-ovn/ci-kubernetes-e2e-flannel-l2bridge-master-windows
 
 # Add New Testgroups Here
 
@@ -3307,8 +3334,15 @@ test_groups:
 # GCE windows test groups.
 - name: ci-kubernetes-e2e-windows-gce
   gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-e2e-windows-gce
+- name: ci-kubernetes-e2e-windows-gce-alpha-features
+  gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-e2e-windows-gce-alpha-features
 - name: ci-kubernetes-e2e-windows-gce-poc
   gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-e2e-windows-gce-poc
+- name: ci-kubernetes-e2e-windows-gce-serial
+  gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-e2e-windows-gce-serial
+
+- name: ci-kubernetes-e2e-windows-gce-k8sbeta
+  gcs_prefix: kubernetes-jenkins/logs/ci-kubernetes-e2e-windows-gce-k8sbeta
 
 # Pivotal Windows test groups
 - name: ci-kubernetes-e2e-windows-cfcr
@@ -3447,6 +3481,12 @@ dashboards:
   - name: kind, master (dev)
     description: Runs conformance tests using kubetest against latest kubernetes master with a kubernetes-in-docker cluster
     test_group_name: ci-kubernetes-kind-conformance
+  - name: kind-image, master (dev)
+    description: Runs conformance tests using image against latest kubernetes master with a kubernetes-in-docker cluster
+    test_group_name: ci-kubernetes-conformance-image-test
+  - name: kind-image, 1.14 (dev)
+    description: Runs conformance tests using image against kubernetes 1.14 branch with a kubernetes-in-docker cluster
+    test_group_name: ci-kubernetes-conformance-image-1-14-test
   - name: kind, master (dev) [non-serial]
     description: Runs conformance tests using kubetest against latest kubernetes master with a kubernetes-in-docker cluster, skipping [Serial] tests
     test_group_name: ci-kubernetes-kind-conformance-parallel
@@ -3465,9 +3505,12 @@ dashboards:
   - name: OpenStack, master (dev)
     description: Runs conformance tests using kubetest against latest kubernetes master with cloud-provider-openstack
     test_group_name: ci-periodic-cloud-provider-openstack-acceptance-test-e2e-conformance
-  - name: OpenStack, v1.11 (dev)
-    description: Runs conformance tests using kubetest against kubernetes from the release-1.11 branch with cloud-provider-openstack
-    test_group_name: ci-periodic-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.11
+  - name: OpenStack, v1.12 (dev)
+    description: Runs conformance tests using kubetest against kubernetes from the release-1.12 branch with cloud-provider-openstack
+    test_group_name: ci-periodic-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.12
+  - name: OpenStack, v1.13 (dev)
+    description: Runs conformance tests using kubetest against kubernetes from the release-1.13 branch with cloud-provider-openstack
+    test_group_name: ci-periodic-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.13
 
   - name: vSphere-cloud-provider, master (dev)
     description: Runs conformance tests using kubetest against latest kubernetes master with cloud-provider-vsphere
@@ -3608,6 +3651,16 @@ dashboards:
     test_group_name: ci-kubernetes-kind-conformance-latest-1-11
     alert_options:
       alert_mail_to_addresses: bentheelder@google.com
+  - name: kind-image, master (dev)
+    description: Runs conformance tests using image against latest kubernetes master with a kubernetes-in-docker cluster
+    test_group_name: ci-kubernetes-conformance-image-test
+    alert_options:
+      alert_mail_to_addresses: davanum@gmail.com
+  - name: kind-image, 1.14 (dev)
+    description: Runs conformance tests using image against kubernetes 1.14 branch with a kubernetes-in-docker cluster
+    test_group_name: ci-kubernetes-conformance-image-1-14-test
+    alert_options:
+      alert_mail_to_addresses: davanum@gmail.com
 
 - name: conformance-hack-local-up-cluster
   dashboard_tab:
@@ -3658,9 +3711,14 @@ dashboards:
     test_group_name: ci-presubmit-cloud-provider-openstack-acceptance-test-e2e-conformance
     alert_options:
       alert_mail_to_addresses: davanum+testgrid@gmail.com
-  - name: presubmit-v1.11
-    description: Runs conformance tests using kubetest against kubernetes v1.11 with cloud-provider-openstack
-    test_group_name: ci-presubmit-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.11
+  - name: presubmit-v1.12
+    description: Runs conformance tests using kubetest against kubernetes v1.12 with cloud-provider-openstack
+    test_group_name: ci-presubmit-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.12
+    alert_options:
+      alert_mail_to_addresses: davanum+testgrid@gmail.com
+  - name: presubmit-v1.13
+    description: Runs conformance tests using kubetest against kubernetes v1.13 with cloud-provider-openstack
+    test_group_name: ci-presubmit-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.13
     alert_options:
       alert_mail_to_addresses: davanum+testgrid@gmail.com
   - name: periodic-master
@@ -3668,9 +3726,14 @@ dashboards:
     test_group_name: ci-periodic-cloud-provider-openstack-acceptance-test-e2e-conformance
     alert_options:
       alert_mail_to_addresses: davanum+testgrid@gmail.com
-  - name: periodic-v1.11
-    description: Runs conformance tests using kubetest against kubernetes v1.11 with cloud-provider-openstack
-    test_group_name: ci-periodic-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.11
+  - name: periodic-v1.12
+    description: Runs conformance tests using kubetest against kubernetes v1.12 with cloud-provider-openstack
+    test_group_name: ci-periodic-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.12
+    alert_options:
+      alert_mail_to_addresses: davanum+testgrid@gmail.com
+  - name: periodic-v1.13
+    description: Runs conformance tests using kubetest against kubernetes v1.13 with cloud-provider-openstack
+    test_group_name: ci-periodic-cloud-provider-openstack-acceptance-test-e2e-conformance-stable-branch-v1.13
     alert_options:
       alert_mail_to_addresses: davanum+testgrid@gmail.com
 
@@ -4600,6 +4663,12 @@ dashboards:
     test_group_name: ci-kubernetes-e2e-windows-gce-poc
   - name: windows-gce
     test_group_name: ci-kubernetes-e2e-windows-gce
+  - name: windows-gce-serial
+    test_group_name: ci-kubernetes-e2e-windows-gce-serial
+  - name: windows-gce-alpha-features
+    test_group_name: ci-kubernetes-e2e-windows-gce-alpha-features
+  - name: windows-gce-1.14
+    test_group_name: ci-kubernetes-e2e-windows-gce-k8sbeta
 
 - name: sig-release-master-upgrade
   dashboard_tab:
@@ -4802,6 +4871,10 @@ dashboards:
     test_group_name: ci-kubernetes-e2e-kubeadm-gce-upgrade-1-13-1-14
   - name: kubeadm-kind-1.14
     test_group_name: ci-kubernetes-e2e-kubeadm-kind-1-14
+  - name: aks-engine-azure-1-14-windows-release
+    test_group_name: ci-kubernetes-e2e-aks-engine-azure-1-14-windows
+  - name: gce-windows-1.14
+    test_group_name: ci-kubernetes-e2e-windows-gce-k8sbeta
 
 - name: sig-release-1.14-blocking
   dashboard_tab:
@@ -5874,8 +5947,6 @@ dashboards:
     test_group_name: ci-cluster-api-test
   - name: pr-build
     test_group_name: pull-cluster-api-build
-  - name: verify-bazel
-    test_group_name: pull-cluster-api-bazel-verify
   - name: pr-make
     test_group_name: pull-cluster-api-make
   - name: pr-test
@@ -6197,6 +6268,10 @@ dashboards:
     test_group_name: ci-kubernetes-e2e-gci-gke-ingress
     alert_options:
       alert_mail_to_addresses: kubernetes-sig-network-test-failures@googlegroups.com
+  - name: gci-gke-network-policy
+    test_group_name: ci-kubernetes-e2e-gci-gke-network-policy
+    alert_options:
+      alert_mail_to_addresses: kubernetes-sig-network-test-failures@googlegroups.com
   - name: gke-cos-1.11-ingress
     test_group_name: ci-kubernetes-e2e-gke-cos-k8sstable3-ingress
     alert_options:
@@ -6242,14 +6317,6 @@ dashboards:
       alert_mail_to_addresses: kubernetes-sig-network-test-failures@googlegroups.com
   - name: ingress-gce-image-push
     test_group_name: ci-ingress-gce-image-push
-    alert_options:
-      alert_mail_to_addresses: kubernetes-sig-network-test-failures@googlegroups.com
-  - name: ingress-gce-upgrade-e2e
-    test_group_name: ci-ingress-gce-upgrade-e2e
-    alert_options:
-      alert_mail_to_addresses: kubernetes-sig-network-test-failures@googlegroups.com
-  - name: ingress-gce-downgrade-e2e
-    test_group_name: ci-ingress-gce-downgrade-e2e
     alert_options:
       alert_mail_to_addresses: kubernetes-sig-network-test-failures@googlegroups.com
 
@@ -6688,6 +6755,12 @@ dashboards:
       url: https://github.com/kubernetes/test-infra/compare/<start-custom-0>...<end-custom-0>
     alert_options:
       alert_mail_to_addresses: gke-kubernetes-engprod+alerts@google.com
+  - name: autoupdate-patch
+    description: Weekly module update to latest patched versions
+    test_group_name: ci-test-infra-autoupdate-patch
+  - name: autoupdate-minor
+    description: Monthly module update to latest minor versions
+    test_group_name: ci-test-infra-autoupdate-minor
 - name: sig-testing-fejtabot
   dashboard_tab:
   - name: retester
@@ -6756,6 +6829,11 @@ dashboards:
     test_group_name: post-test-infra-build-smoke
     code_search_url_template:
       url: https://github.com/kubernetes/test-infra/compare/<start-custom-0>...<end-custom-0>
+  - name: resultstore-upload
+    description: transfer finished results into resultstore
+    test_group_name: ci-test-infra-resultstore-upload
+    code_search_url_template:
+      url: https://github.com/kubernetes/test-infra/compare/<start-custom-0>...<end-custom-0>
 
 - name: sig-testing-misc
   dashboard_tab:
@@ -6800,6 +6878,13 @@ dashboards:
     test_group_name: pull-kubernetes-conformance-image-test
     code_search_url_template:
       url: https://github.com/kubernetes/test-infra/compare/<start-custom-0>...<end-custom-0>
+  - name: slack-oncall-updater
+    description: runs experiment/slack-oncall-updater to update the membership of the test-infra-oncall slack usergroup
+    test_group_name: ci-test-infra-update-slack-oncall
+    code_search_url_template:
+      url: https://github.com/kubernetes/test-infra/compare/<start-custom-0>...<end-custom-0>
+    alert_options:
+      alert_mail_to_addresses: ktbry@google.com
 
 - name: sig-testing-canaries
   dashboard_tab:
@@ -6886,6 +6971,12 @@ dashboards:
   - name: kind, v1.11 (dev)
     description: Runs conformance tests using kubetest against latest kubernetes relase-1.12 with a kubernetes-in-docker cluster
     test_group_name: ci-kubernetes-kind-conformance-latest-1-11
+  - name: conformance-image, master (dev)
+    description: Runs conformance test using connformance image against latest kubernetes master with a kubernetes-in-docker cluster
+    test_group_name: ci-kubernetes-conformance-image-test
+  - name: conformance-image, 1.14 (dev)
+    description: Runs conformance test using connformance image against kubernetes 1.14 branch with a kubernetes-in-docker cluster
+    test_group_name: ci-kubernetes-conformance-image-1-14-test
 
 - name: sig-gcp-master
   dashboard_tab:
@@ -7207,6 +7298,9 @@ dashboards:
     base_options: width=10
   - name: verify-codegen
     test_group_name: pull-test-infra-verify-codegen
+    base_options: width=10
+  - name: verify-spelling
+    test_group_name: pull-test-infra-verify-github-spelling
     base_options: width=10
 
 - name: presubmits-cluster-registry
@@ -7567,12 +7661,25 @@ dashboards:
   - name: aks-engine-azure-windows-master-staging
     description: Staging job for new Windows tests on a Kubernetes cluster provided by aks-engine (https://github.com/Azure/aks-engine) on Azure cloud"
     test_group_name: ci-kubernetes-e2e-aks-engine-azure-master-staging-windows
+  - name: aks-engine-azure-1-14-windows
+    description: Release tests for K8s 1.14 on Clusters with Windows nodes provided by aks-engine on Azure cloud.
+    test_group_name: ci-kubernetes-e2e-aks-engine-azure-1-14-windows
   - name: gce-windows-master
     description: Runs tests on a Kubernetes cluster with Windows nodes on GCE"
     test_group_name: ci-kubernetes-e2e-windows-gce
+  - name: gce-windows-1.14
+    description: Runs tests on a Kubernetes 1.14 cluster with Windows nodes on GCE"
+    test_group_name: ci-kubernetes-e2e-windows-gce-k8sbeta
+  - name: gce-windows-master-alpha-features
+    description: Runs tests on a Kubernetes cluster with Windows nodes on GCE and alpha features enabled"
+    test_group_name: ci-kubernetes-e2e-windows-gce-alpha-features
+
   - name: cfcr-vsphere-windows-master
     description: Runs Windows verification tests on a master-branch Kubernetes cluster provided by CFCR (https://github.com/cloudfoundry-incubator/kubo-release) on vSphere"
     test_group_name: ci-kubernetes-e2e-windows-cfcr
+  - name: flannel-l2bridge-windows-master
+    description: Runs Windows e2e tests on K8s clusters on Openstack vms with Flannel CNI in l2bridge network mode.
+    test_group_name: ci-kubernetes-e2e-flannel-l2bridge-master-windows
 
 # sig-azure dashboard
 - name: sig-azure-master
@@ -7774,6 +7881,7 @@ dashboard_groups:
   dashboard_names:
   - sig-gcp-master
   - sig-gcp-release-1.11
+  - sig-gcp-release-1.12
   - sig-gcp-compute-persistent-disk-csi-driver
 
 - name: sig-autoscaling

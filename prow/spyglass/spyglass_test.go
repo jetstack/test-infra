@@ -160,6 +160,11 @@ test/e2e/e2e.go:137 BeforeSuite on Node 1 failed test/e2e/e2e.go:137
 						  },
 						},`),
 		},
+		{
+			BucketName: "test-bucket",
+			Name:       "logs/symlink-party/123.txt",
+			Content:    []byte(`gs://test-bucket/logs/the-actual-place/123`),
+		},
 	})
 	defer fakeGCSServer.Stop()
 	kc := fkc{
@@ -694,8 +699,18 @@ func TestRunToPR(t *testing.T) {
 			expError: true,
 		},
 		{
+			name:     "GCS PR job in directory errors",
+			src:      "gcs/kubernetes-jenkins/pr-logs/directory/example-job-name/314159",
+			expError: true,
+		},
+		{
 			name:     "Bad GCS key errors",
 			src:      "gcs/this is just nonsense",
+			expError: true,
+		},
+		{
+			name:     "Longer bad GCS key errors",
+			src:      "gcs/kubernetes-jenkins/pr-logs",
 			expError: true,
 		},
 		{
@@ -1124,6 +1139,156 @@ func TestFetchArtifactsPodLog(t *testing.T) {
 		}
 		if string(content) != "clusterA" {
 			t.Errorf("Bad pod log content for %s: %q (expected 'clusterA')", key, content)
+		}
+	}
+}
+
+func TestKeyToJob(t *testing.T) {
+	testCases := []struct {
+		name      string
+		path      string
+		jobName   string
+		buildID   string
+		expectErr bool
+	}{
+		{
+			name:    "GCS periodic path with trailing slash",
+			path:    "gcs/kubernetes-jenkins/logs/periodic-kubernetes-bazel-test-1-14/40/",
+			jobName: "periodic-kubernetes-bazel-test-1-14",
+			buildID: "40",
+		},
+		{
+			name:    "GCS periodic path without trailing slash",
+			path:    "gcs/kubernetes-jenkins/logs/periodic-kubernetes-bazel-test-1-14/40",
+			jobName: "periodic-kubernetes-bazel-test-1-14",
+			buildID: "40",
+		},
+		{
+			name:    "GCS PR path with trailing slash",
+			path:    "gcs/kubernetes-jenkins/pr-logs/pull/test-infra/11573/pull-test-infra-bazel/25366/",
+			jobName: "pull-test-infra-bazel",
+			buildID: "25366",
+		},
+		{
+			name:    "GCS PR path without trailing slash",
+			path:    "gcs/kubernetes-jenkins/pr-logs/pull/test-infra/11573/pull-test-infra-bazel/25366",
+			jobName: "pull-test-infra-bazel",
+			buildID: "25366",
+		},
+		{
+			name:    "Prowjob path with trailing slash",
+			path:    "prowjob/pull-test-infra-bazel/25366/",
+			jobName: "pull-test-infra-bazel",
+			buildID: "25366",
+		},
+		{
+			name:    "Prowjob path without trailing slash",
+			path:    "prowjob/pull-test-infra-bazel/25366",
+			jobName: "pull-test-infra-bazel",
+			buildID: "25366",
+		},
+		{
+			name:      "Path with only one component",
+			path:      "nope",
+			expectErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		sg := Spyglass{}
+		jobName, buildID, err := sg.KeyToJob(tc.path)
+		if err != nil {
+			if !tc.expectErr {
+				t.Errorf("%s: unexpected error %v", tc.name, err)
+			}
+			continue
+		}
+		if tc.expectErr {
+			t.Errorf("%s: expected an error, but got result %s #%s", tc.name, jobName, buildID)
+			continue
+		}
+		if jobName != tc.jobName {
+			t.Errorf("%s: expected job name %q, but got %q", tc.name, tc.jobName, jobName)
+			continue
+		}
+		if buildID != tc.buildID {
+			t.Errorf("%s: expected build ID %q, but got %q", tc.name, tc.buildID, buildID)
+		}
+	}
+}
+
+func TestResolveSymlink(t *testing.T) {
+	testCases := []struct {
+		name      string
+		path      string
+		result    string
+		expectErr bool
+	}{
+		{
+			name:   "symlink without trailing slash is resolved",
+			path:   "gcs/test-bucket/logs/symlink-party/123",
+			result: "gcs/test-bucket/logs/the-actual-place/123",
+		},
+		{
+			name:   "symlink with trailing slash is resolved",
+			path:   "gcs/test-bucket/logs/symlink-party/123/",
+			result: "gcs/test-bucket/logs/the-actual-place/123",
+		},
+		{
+			name:   "non-symlink without trailing slash is unchanged",
+			path:   "gcs/test-bucket/better-logs/42",
+			result: "gcs/test-bucket/better-logs/42",
+		},
+		{
+			name:   "non-symlink with trailing slash drops the slash",
+			path:   "gcs/test-bucket/better-logs/42/",
+			result: "gcs/test-bucket/better-logs/42",
+		},
+		{
+			name:   "prowjob without trailing slash is unchanged",
+			path:   "prowjob/better-logs/42",
+			result: "prowjob/better-logs/42",
+		},
+		{
+			name:   "prowjob with trailing slash drops the slash",
+			path:   "prowjob/better-logs/42/",
+			result: "prowjob/better-logs/42",
+		},
+		{
+			name:      "unknown key type is an error",
+			path:      "wtf/what-is-this/send-help",
+			expectErr: true,
+		},
+		{
+			name:      "insufficient path components are an error",
+			path:      "gcs/hi",
+			expectErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		fakeConfigAgent := fca{}
+		fakeJa = jobs.NewJobAgent(fkc{}, map[string]jobs.PodLogClient{kube.DefaultClusterAlias: fpkc("clusterA")}, fakeConfigAgent.Config)
+		fakeJa.Start()
+
+		fakeGCSClient := fakeGCSServer.Client()
+
+		sg := New(fakeJa, fakeConfigAgent.Config, fakeGCSClient, context.Background())
+
+		result, err := sg.ResolveSymlink(tc.path)
+		if err != nil {
+			if !tc.expectErr {
+				t.Errorf("test %q: unexpected error: %v", tc.name, err)
+			}
+			continue
+		}
+		if tc.expectErr {
+			t.Errorf("test %q: expected an error, but got result %q", tc.name, result)
+			continue
+		}
+		if result != tc.result {
+			t.Errorf("test %q: expected %q, but got %q", tc.name, tc.result, result)
+			continue
 		}
 	}
 }

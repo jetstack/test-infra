@@ -132,7 +132,9 @@ func TestInsertLink(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			changed, err := insertLink(&gcs.Started{Metadata: tc.input}, viewURL)
+			var start gcs.Started
+			start.Metadata = tc.input
+			changed, err := insertLink(&start, viewURL)
 			switch {
 			case err != nil:
 				if !tc.err {
@@ -141,7 +143,7 @@ func TestInsertLink(t *testing.T) {
 			case tc.err:
 				t.Error("failed to received an error")
 			case changed != tc.changed:
-				t.Error("changed %t != expected %t", changed, tc.changed)
+				t.Errorf("changed %t != expected %t", changed, tc.changed)
 			case !reflect.DeepEqual(tc.expected, tc.input):
 				t.Errorf("metadata %#v != expected %#v", tc.input, tc.expected)
 			}

@@ -20,6 +20,8 @@ package spyglass
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/url"
 	"path"
 	"sort"
 	"strconv"
@@ -113,6 +115,50 @@ func (s *Spyglass) Lenses(matchCache map[string][]string) []lenses.Lens {
 	return ls
 }
 
+func (s *Spyglass) ResolveSymlink(src string) (string, error) {
+	src = strings.TrimSuffix(src, "/")
+	keyType, key, err := splitSrc(src)
+	if err != nil {
+		return "", fmt.Errorf("error parsing src: %v", src)
+	}
+	switch keyType {
+	case prowKeyType:
+		return src, nil // prowjob keys cannot be symlinks.
+	case gcsKeyType:
+		parts := strings.SplitN(key, "/", 2)
+		if len(parts) != 2 {
+			return "", fmt.Errorf("gcs path should have both a bucket and a path")
+		}
+		bucketName := parts[0]
+		prefix := parts[1]
+		bkt := s.client.Bucket(bucketName)
+		obj := bkt.Object(prefix + ".txt")
+		reader, err := obj.NewReader(context.Background())
+		if err != nil {
+			return src, nil
+		}
+		// Avoid using ReadAll here to prevent an attacker forcing us to read a giant file into memory.
+		bytes := make([]byte, 4096) // assume we won't get more than 4 kB of symlink to read
+		n, err := reader.Read(bytes)
+		if err != nil && err != io.EOF {
+			return "", fmt.Errorf("failed to read symlink file (which does seem to exist): %v", err)
+		}
+		if n == len(bytes) {
+			return "", fmt.Errorf("symlink destination exceeds length limit of %d bytes", len(bytes)-1)
+		}
+		u, err := url.Parse(string(bytes[:n]))
+		if err != nil {
+			return "", fmt.Errorf("failed to parse URL: %v", err)
+		}
+		if u.Scheme != "gs" {
+			return "", fmt.Errorf("expected gs:// symlink, got '%s://'", u.Scheme)
+		}
+		return path.Join(gcsKeyType, u.Host, u.Path), nil
+	default:
+		return "", fmt.Errorf("unknown src key type %q", keyType)
+	}
+}
+
 // JobPath returns a link to the GCS directory for the job specified in src
 func (s *Spyglass) JobPath(src string) (string, error) {
 	src = strings.TrimSuffix(src, "/")
@@ -202,9 +248,13 @@ func (s *Spyglass) RunToPR(src string) (string, string, int, error) {
 		if logType == gcs.NonPRLogs {
 			return "", "", 0, fmt.Errorf("not a PR URL: %q", key)
 		} else if logType == gcs.PRLogs {
-			prNum, err := strconv.Atoi(split[len(split)-3])
+			if len(split) < 3 {
+				return "", "", 0, fmt.Errorf("malformed %s key %q should have at least three components", gcs.PRLogs, key)
+			}
+			prNumStr := split[len(split)-3]
+			prNum, err := strconv.Atoi(prNumStr)
 			if err != nil {
-				return "", "", 0, fmt.Errorf("couldn't parse PR number %q in %q: %v", split[5], key, err)
+				return "", "", 0, fmt.Errorf("couldn't parse PR number %q in %q: %v", prNumStr, key, err)
 			}
 			// We don't actually attempt to look up the job's own configuration.
 			// In practice, this shouldn't matter: we only want to read DefaultOrg and DefaultRepo, and overriding those
