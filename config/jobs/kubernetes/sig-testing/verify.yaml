@@ -16,7 +16,7 @@ presubmits:
       preset-dind-enabled: "true"
     spec:
       containers:
-      - image: gcr.io/k8s-testimages/kubekins-e2e:v20190220-615bdbe2e-master
+      - image: gcr.io/k8s-testimages/kubekins-e2e:v20190301-76bc03340-master
         imagePullPolicy: Always
         command:
         - runner.sh
@@ -33,10 +33,6 @@ presubmits:
           value: master
         - name: REPO_DIR
           value: /workspace/k8s.io/kubernetes
-        # TODO(bentheelder): remove bandaid once we have this metadata exposed
-        # properly, first-class
-        - name: METADATA_BANDAID
-          value: "true"
         # docker-in-docker needs privileged mode
         securityContext:
           privileged: true
@@ -54,7 +50,7 @@ presubmits:
       preset-dind-enabled: "true"
     spec:
       containers:
-        - image: gcr.io/k8s-testimages/kubekins-e2e:v20190220-615bdbe2e-1.14
+        - image: gcr.io/k8s-testimages/kubekins-e2e:v20190301-76bc03340-1.14
           imagePullPolicy: Always
           command:
             - runner.sh
@@ -71,10 +67,6 @@ presubmits:
               value: master
             - name: REPO_DIR
               value: /workspace/k8s.io/kubernetes
-            # TODO(bentheelder): remove bandaid once we have this metadata exposed
-            # properly, first-class
-            - name: METADATA_BANDAID
-              value: "true"
           # docker-in-docker needs privileged mode
           securityContext:
             privileged: true
@@ -127,7 +119,7 @@ periodics:
     path_alias: k8s.io/kubernetes
   spec:
     containers:
-    - image: gcr.io/k8s-testimages/kubekins-e2e:v20190220-615bdbe2e-master
+    - image: gcr.io/k8s-testimages/kubekins-e2e:v20190301-76bc03340-master
       imagePullPolicy: Always
       command:
       - runner.sh
@@ -142,10 +134,6 @@ periodics:
         value: master
       - name: REPO_DIR
         value: /workspace/k8s.io/kubernetes
-      # TODO(bentheelder): remove bandaid once we have this metadata exposed
-      # properly, first-class
-      - name: METADATA_BANDAID
-        value: "true"
       # docker-in-docker needs privileged mode
       securityContext:
         privileged: true
@@ -167,7 +155,7 @@ periodics:
       path_alias: k8s.io/kubernetes
   spec:
     containers:
-      - image: gcr.io/k8s-testimages/kubekins-e2e:v20190220-615bdbe2e-1.14
+      - image: gcr.io/k8s-testimages/kubekins-e2e:v20190301-76bc03340-1.14
         imagePullPolicy: Always
         command:
           - runner.sh
@@ -182,10 +170,6 @@ periodics:
             value: release-1.14
           - name: REPO_DIR
             value: /workspace/k8s.io/kubernetes
-          # TODO(bentheelder): remove bandaid once we have this metadata exposed
-          # properly, first-class
-          - name: METADATA_BANDAID
-            value: "true"
         # docker-in-docker needs privileged mode
         securityContext:
           privileged: true

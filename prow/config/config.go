@@ -18,6 +18,8 @@ limitations under the License.
 package config
 
 import (
+	"bytes"
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -73,7 +75,7 @@ type ProwConfig struct {
 	BranchProtection BranchProtection      `json:"branch-protection,omitempty"`
 	Orgs             map[string]org.Config `json:"orgs,omitempty"`
 	Gerrit           Gerrit                `json:"gerrit,omitempty"`
-	GithubReporter   GithubReporter        `json:"github_reporter,omitempty"`
+	GitHubReporter   GitHubReporter        `json:"github_reporter,omitempty"`
 
 	// TODO: Move this out of the main config.
 	JenkinsOperators []JenkinsOperator `json:"jenkins_operators,omitempty"`
@@ -108,6 +110,14 @@ type ProwConfig struct {
 
 	// Pub/Sub Subscriptions that we want to listen to
 	PubSubSubscriptions PubsubSubscriptions `json:"pubsub_subscriptions,omitempty"`
+
+	// GitHubOptions allows users to control how prow applications display GitHub website links.
+	GitHubOptions GitHubOptions `json:"github,omitempty"`
+
+	// StatusErrorLink is the url that will be used for jenkins prowJobs that can't be
+	// found, or have another generic issue. The default that will be used if this is not set
+	// is: https://github.com/kubernetes/test-infra/issues
+	StatusErrorLink string `json:"status_error_link,omitempty"`
 }
 
 // OwnersDirBlacklist is used to configure which directories to ignore when
@@ -172,7 +182,7 @@ type Controller struct {
 	MaxGoroutines int `json:"max_goroutines,omitempty"`
 
 	// AllowCancellations enables aborting presubmit jobs for commits that
-	// have been superseded by newer commits in Github pull requests.
+	// have been superseded by newer commits in GitHub pull requests.
 	AllowCancellations bool `json:"allow_cancellations,omitempty"`
 }
 
@@ -236,8 +246,8 @@ type JenkinsOperator struct {
 	LabelSelector labels.Selector `json:"-"`
 }
 
-// GithubReporter holds the config for report behavior in github
-type GithubReporter struct {
+// GitHubReporter holds the config for report behavior in github
+type GitHubReporter struct {
 	// JobTypesToReport is used to determine which type of prowjob
 	// should be reported to github
 	//
@@ -347,6 +357,18 @@ type Branding struct {
 
 // PubSubSubscriptions maps GCP projects to a list of Topics.
 type PubsubSubscriptions map[string][]string
+
+// GitHubOptions allows users to control how prow applications display GitHub website links.
+type GitHubOptions struct {
+	// LinkURLFromConfig is the string representation of the link_url config parameter.
+	// This config parameter allows users to override the default GitHub link url for all plugins.
+	// If this option is not set, we assume "https://github.com".
+	LinkURLFromConfig string `json:"link_url,omitempty"`
+
+	// LinkURL is the url representation of LinkURLFromConfig. This variable should be used
+	// in all places internally.
+	LinkURL *url.URL
+}
 
 // Load loads and parses the config at path.
 func Load(prowConfig, jobConfig string) (c *Config, err error) {
@@ -464,7 +486,7 @@ func loadConfig(prowConfig, jobConfig string) (*Config, error) {
 
 // yamlToConfig converts a yaml file into a Config object
 func yamlToConfig(path string, nc interface{}) error {
-	b, err := ioutil.ReadFile(path)
+	b, err := ReadFileMaybeGZIP(path)
 	if err != nil {
 		return fmt.Errorf("error reading %s: %v", path, err)
 	}
@@ -505,6 +527,26 @@ func yamlToConfig(path string, nc interface{}) error {
 		fix(&jc.Periodics[i])
 	}
 	return nil
+}
+
+// ReadFileMaybeGZIP wraps ioutil.ReadFile, returning the decompressed contents
+// if the file is gzipped, or otherwise the raw contents
+func ReadFileMaybeGZIP(path string) ([]byte, error) {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	// check if file contains gzip header: http://www.zlib.org/rfc-gzip.html
+	if !bytes.HasPrefix(b, []byte("\x1F\x8B")) {
+		// go ahead and return the contents if not gzipped
+		return b, nil
+	}
+	// otherwise decode
+	gzipReader, err := gzip.NewReader(bytes.NewBuffer(b))
+	if err != nil {
+		return nil, err
+	}
+	return ioutil.ReadAll(gzipReader)
 }
 
 // mergeConfig merges two JobConfig together
@@ -794,14 +836,14 @@ func parseProwConfig(c *Config) error {
 		c.Gerrit.RateLimit = 5
 	}
 
-	if len(c.GithubReporter.JobTypesToReport) == 0 {
+	if len(c.GitHubReporter.JobTypesToReport) == 0 {
 		// TODO(krzyzacy): The default will be changed to presubmit + postsubmit by April.
-		c.GithubReporter.JobTypesToReport = append(c.GithubReporter.JobTypesToReport, prowapi.PresubmitJob)
+		c.GitHubReporter.JobTypesToReport = append(c.GitHubReporter.JobTypesToReport, prowapi.PresubmitJob)
 	}
 
 	// validate entries are valid job types
 	// Currently only presubmit and postsubmit can be reported to github
-	for _, t := range c.GithubReporter.JobTypesToReport {
+	for _, t := range c.GitHubReporter.JobTypesToReport {
 		if t != prowapi.PresubmitJob && t != prowapi.PostsubmitJob {
 			return fmt.Errorf("invalid job_types_to_report: %v", t)
 		}
@@ -977,6 +1019,19 @@ func parseProwConfig(c *Config) error {
 		// it to JobURLPrefixConfig["*"] without overwriting the latter
 		// so validation succeeds
 		c.Plank.JobURLPrefix = ""
+	}
+
+	if c.GitHubOptions.LinkURLFromConfig == "" {
+		c.GitHubOptions.LinkURLFromConfig = "https://github.com"
+	}
+	linkURL, err := url.Parse(c.GitHubOptions.LinkURLFromConfig)
+	if err != nil {
+		return fmt.Errorf("unable to parse github.link_url, might not be a valid url: %v", err)
+	}
+	c.GitHubOptions.LinkURL = linkURL
+
+	if c.StatusErrorLink == "" {
+		c.StatusErrorLink = "https://github.com/kubernetes/test-infra/issues"
 	}
 
 	if c.LogLevel == "" {

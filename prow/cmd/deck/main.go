@@ -27,6 +27,7 @@ import (
 	"html/template"
 	"io/ioutil"
 	"net/http"
+	"net/http/pprof"
 	"net/url"
 	"path"
 	"strconv"
@@ -133,7 +134,14 @@ func main() {
 		logrusutil.NewDefaultFieldsFormatter(nil, logrus.Fields{"component": "deck"}),
 	)
 
-	mux := http.NewServeMux()
+	// serve debug info
+	pprofMux := http.NewServeMux()
+	pprofMux.HandleFunc("/debug/pprof/", pprof.Index)
+	pprofMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	pprofMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	pprofMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	pprofMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	go func() { logrus.WithError(http.ListenAndServe(":8082", pprofMux)).Fatal("ListenAndServe returned.") }()
 
 	// setup config agent, pod log clients etc.
 	configAgent := &config.Agent{}
@@ -142,6 +150,14 @@ func main() {
 	}
 	cfg := configAgent.Config
 
+	// signal to the world that we are healthy
+	// this needs to be in a separate port as we don't start the
+	// main server with the main mux until we're ready
+	healthMux := http.NewServeMux()
+	healthMux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "OK") })
+	go func() { logrus.WithError(http.ListenAndServe(":8081", healthMux)).Fatal("ListenAndServe returned.") }()
+
+	mux := http.NewServeMux()
 	// setup common handlers for local and deployed runs
 	mux.Handle("/static/", http.StripPrefix("/static", staticHandlerFromDir(o.staticFilesLocation)))
 	mux.Handle("/config", gziphandler.GzipHandler(handleConfig(cfg)))
@@ -181,6 +197,8 @@ func main() {
 		mux = prodOnlyMain(cfg, o, mux)
 	}
 
+	// signal to the world that we're ready
+	healthMux.HandleFunc("/healthz/ready", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "OK") })
 	// setup done, actually start the server
 	logrus.WithError(http.ListenAndServe(":8080", mux)).Fatal("ListenAndServe returned.")
 }
@@ -265,7 +283,7 @@ func prodOnlyMain(cfg config.Getter, o options, mux *http.ServeMux) *http.ServeM
 			logrus.WithError(err).Fatal("Could not read cookie secret file.")
 		}
 
-		var githubOAuthConfig config.GithubOAuthConfig
+		var githubOAuthConfig config.GitHubOAuthConfig
 		if err := yaml.Unmarshal(githubOAuthConfigRaw, &githubOAuthConfig); err != nil {
 			logrus.WithError(err).Fatal("Error unmarshalling github oauth config")
 		}
@@ -281,7 +299,7 @@ func prodOnlyMain(cfg config.Getter, o options, mux *http.ServeMux) *http.ServeM
 			logrus.Fatal("Cookie secret should not be empty")
 		}
 		cookie := sessions.NewCookieStore(decodedSecret)
-		githubOAuthConfig.InitGithubOAuthConfig(cookie)
+		githubOAuthConfig.InitGitHubOAuthConfig(cookie)
 
 		goa := githuboauth.NewAgent(&githubOAuthConfig, logrus.WithField("client", "githuboauth"))
 		oauthClient := &oauth2.Config{
@@ -317,8 +335,8 @@ func prodOnlyMain(cfg config.Getter, o options, mux *http.ServeMux) *http.ServeM
 			prStatusAgent.HandlePrStatus(prStatusAgent)))
 		// Handles login request.
 		mux.Handle("/github-login", goa.HandleLogin(oauthClient))
-		// Handles redirect from Github OAuth server.
-		mux.Handle("/github-login/redirect", goa.HandleRedirect(oauthClient, githuboauth.NewGithubClientGetter()))
+		// Handles redirect from GitHub OAuth server.
+		mux.Handle("/github-login/redirect", goa.HandleRedirect(oauthClient, githuboauth.NewGitHubClientGetter()))
 	}
 
 	// optionally inject http->https redirect handler when behind loadbalancer
@@ -343,6 +361,7 @@ func prodOnlyMain(cfg config.Getter, o options, mux *http.ServeMux) *http.ServeM
 		}(mux, o.redirectHTTPTo))
 		mux = redirectMux
 	}
+
 	return mux
 }
 
@@ -525,7 +544,7 @@ func handlePRHistory(o options, cfg config.Getter, gcsClient *storage.Client) ht
 		tmpl, err := getPRHistory(r.URL, cfg(), gcsClient)
 		if err != nil {
 			msg := fmt.Sprintf("failed to get PR history: %v", err)
-			logrus.WithField("url", r.URL).Error(msg)
+			logrus.WithField("url", r.URL).Info(msg)
 			http.Error(w, msg, http.StatusInternalServerError)
 			return
 		}
@@ -568,6 +587,14 @@ func handleRequestJobViews(sg *spyglass.Spyglass, cfg config.Getter, o options) 
 // renderSpyglass returns a pre-rendered Spyglass page from the given source string
 func renderSpyglass(sg *spyglass.Spyglass, cfg config.Getter, src string, o options) (string, error) {
 	renderStart := time.Now()
+
+	src = strings.TrimSuffix(src, "/")
+	realPath, err := sg.ResolveSymlink(src)
+	if err != nil {
+		return "", fmt.Errorf("error when resolving real path: %v", err)
+	}
+	src = realPath
+
 	artifactNames, err := sg.ListArtifacts(src)
 	if err != nil {
 		return "", fmt.Errorf("error listing artifacts: %v", err)
@@ -625,6 +652,11 @@ func renderSpyglass(sg *spyglass.Spyglass, cfg config.Getter, src string, o opti
 		prHistLink = "/pr-history?org=" + org + "&repo=" + repo + "&pr=" + strconv.Itoa(number)
 	}
 
+	jobName, buildID, err := sg.KeyToJob(src)
+	if err != nil {
+		return "", fmt.Errorf("error determining jobName / buildID: %v", err)
+	}
+
 	announcement := ""
 	if cfg().Deck.Spyglass.Announcement != "" {
 		announcementTmpl, err := template.New("announcement").Parse(cfg().Deck.Spyglass.Announcement)
@@ -663,6 +695,8 @@ func renderSpyglass(sg *spyglass.Spyglass, cfg config.Getter, src string, o opti
 		PRHistLink    string
 		Announcement  template.HTML
 		TestgridLink  string
+		JobName       string
+		BuildID       string
 	}
 	lTmpl := lensesTemplate{
 		Lenses:        ls,
@@ -674,6 +708,8 @@ func renderSpyglass(sg *spyglass.Spyglass, cfg config.Getter, src string, o opti
 		PRHistLink:    prHistLink,
 		Announcement:  template.HTML(announcement),
 		TestgridLink:  tgLink,
+		JobName:       jobName,
+		BuildID:       buildID,
 	}
 	t := template.New("spyglass.html")
 
@@ -969,7 +1005,7 @@ func handleFavicon(staticFilesLocation string, cfg config.Getter) http.HandlerFu
 	}
 }
 
-func isValidatedGitOAuthConfig(githubOAuthConfig *config.GithubOAuthConfig) bool {
+func isValidatedGitOAuthConfig(githubOAuthConfig *config.GitHubOAuthConfig) bool {
 	return githubOAuthConfig.ClientID != "" && githubOAuthConfig.ClientSecret != "" &&
 		githubOAuthConfig.RedirectURL != "" &&
 		githubOAuthConfig.FinalRedirectURL != ""
